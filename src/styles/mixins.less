@@ -1,0 +1,97 @@
+// 弹性布局
+.flex(@direction: row, @justify: flex-start, @align: center, @wrap: nowrap) {
+  display: flex;
+  flex-direction: @direction;
+  justify-content: @justify;
+  align-items: @align;
+  flex-wrap: @wrap;
+}
+
+// 绝对定位居中
+.absolute-center() {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+// 文本溢出省略号
+.text-ellipsis() {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// 多行文本溢出省略号
+.text-ellipsis-multi(@line: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: @line;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// 清除浮动
+.clearfix() {
+  &::after {
+    content: '';
+    display: table;
+    clear: both;
+  }
+}
+
+// 滚动条样式
+.scrollbar(@width: 6px, @thumb-color: @primary-color, @track-color: @bg-color-light) {
+  &::-webkit-scrollbar {
+    width: @width;
+    height: @width;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: @thumb-color;
+    border-radius: @border-radius-base;
+  }
+
+  &::-webkit-scrollbar-track {
+    background-color: @track-color;
+  }
+}
+
+// 响应式布局
+.respond-to(@breakpoint) {
+  @xs: ~"(max-width: 575px)";
+  @sm: ~"(min-width: 576px) and (max-width: 767px)";
+  @md: ~"(min-width: 768px) and (max-width: 991px)";
+  @lg: ~"(min-width: 992px) and (max-width: 1199px)";
+  @xl: ~"(min-width: 1200px)";
+
+  @media @breakpoint {
+    @content();
+  }
+}
+
+// 按钮基础样式
+.button-style(@bg: @primary-color, @color: white, @hover-bg: @primary-color-light, @active-bg: @primary-color-dark) {
+  background-color: @bg;
+  color: @color;
+  border: none;
+  border-radius: @border-radius-base;
+  cursor: pointer;
+  transition: background-color @transition-time @transition-ease;
+
+  &:hover {
+    background-color: @hover-bg;
+  }
+
+  &:active {
+    background-color: @active-bg;
+  }
+}
+
+// 卡片样式
+.card-style(@bg: @bg-color, @padding: @spacing-base, @radius: @border-radius-base, @shadow: @box-shadow-base) {
+  background-color: @bg;
+  padding: @padding;
+  border-radius: @radius;
+  box-shadow: @shadow;
+} 

@@ -1,0 +1,106 @@
+@import './variables.less';
+@import './mixins.less';
+
+// 重置和规范化样式
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: @text-color;
+  font-size: @font-size-base;
+  line-height: 1.5;
+  height: 100%;
+  width: 100%;
+}
+
+#app {
+  height: 100%;
+  width: 100%;
+}
+
+a {
+  text-decoration: none;
+  color: @primary-color;
+  transition: color @transition-time @transition-ease;
+
+  &:hover {
+    color: @primary-color-light;
+  }
+}
+
+ul, ol {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+// 通用工具类
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.full-height {
+  height: 100%;
+}
+
+.flex-center {
+  .flex(row, center, center);
+}
+
+.flex-between {
+  .flex(row, space-between, center);
+}
+
+.flex-column {
+  .flex(column);
+}
+
+.m-t-s {
+  margin-top: @spacing-small;
+}
+
+.m-t-b {
+  margin-top: @spacing-base;
+}
+
+.m-t-l {
+  margin-top: @spacing-large;
+}
+
+.m-b-s {
+  margin-bottom: @spacing-small;
+}
+
+.m-b-b {
+  margin-bottom: @spacing-base;
+}
+
+.m-b-l {
+  margin-bottom: @spacing-large;
+}
+
+// 滚动条样式
+body {
+  .scrollbar();
+} 

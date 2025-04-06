@@ -1,0 +1,43 @@
+// 导入混合文件
+@import './mixins.less';
+
+// 导出弹性布局混合
+.flex-column() {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.flex-row() {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.flex-center() {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between() {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-start() {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.flex-end() {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+// 确保mixins.less中的所有混合函数都能被全局使用 
