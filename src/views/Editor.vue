@@ -1,38 +1,34 @@
 <template>
   <div class="editor-container">
-    <el-container style="height: 100vh; overflow: hidden">
-      <el-aside width="200px" class="left-aside">
-        <!-- Left Panel Split: Top for Materials, Bottom for Layers -->
-        <div class="left-panel materials-panel">
-          <h4>物料区</h4>
-          <el-scrollbar>
-            <ul class="material-list">
-              <li
-                v-for="material in materials"
-                :key="material.key"
-                class="material-item"
-                draggable="true"
-                :title="material.label"
-                @dragstart="handleDragStart(material, $event)"
-                @dragend="handleDragEnd"
-              >
-                <el-icon :size="32">
-                  <component :is="material.icon" />
-                </el-icon>
-              </li>
-            </ul>
-          </el-scrollbar>
-        </div>
-        <div class="left-panel layer-panel-container">
-          <LayerPanel />
-        </div>
-      </el-aside>
-      <el-container style="overflow: hidden">
-        <el-header class="editor-header">
-          <!-- 顶部操作栏 -->
+    <!-- 顶部操作栏，支持上下收缩 -->
+    <div class="editor-header" :class="{ collapsed: headerCollapsed }">
+      <div class="header-toggle" @click="toggleHeader">
+        <el-icon><ArrowUp v-if="!headerCollapsed" /><ArrowDown v-else /></el-icon>
+      </div>
+
+      <template v-if="!headerCollapsed">
+        <div class="header-content">
           <div class="header-left">编辑器标题</div>
-          <div class="header-center" />
-          <!-- 预留中间区域 -->
+          <div class="header-center">
+            <!-- 画布大小设置 -->
+            <div class="canvas-size-settings">
+              <el-input-number
+                v-model="canvasWidth"
+                :min="800"
+                :max="10000"
+                size="small"
+                @change="updateCanvasSize"
+              />
+              <span>×</span>
+              <el-input-number
+                v-model="canvasHeight"
+                :min="600"
+                :max="10000"
+                size="small"
+                @change="updateCanvasSize"
+              />
+            </div>
+          </div>
           <div class="header-right">
             <!-- Add Undo/Redo Buttons -->
             <el-button size="small" :disabled="!canvasStore.canUndo" @click="canvasStore.undo">
@@ -48,6 +44,22 @@
               解组
             </el-button>
             <el-divider direction="vertical" />
+            <!-- 缩放控制 -->
+            <el-button-group>
+              <el-button size="small" @click="zoomOut">
+                <el-icon><Minus /></el-icon>
+              </el-button>
+              <el-button size="small" style="width: 55px">
+                {{ scaleDisplay }}
+              </el-button>
+              <el-button size="small" @click="zoomIn">
+                <el-icon><Plus /></el-icon>
+              </el-button>
+              <el-button size="small" @click="resetZoom">
+                <el-icon><FullScreen /></el-icon>
+              </el-button>
+            </el-button-group>
+            <el-divider direction="vertical" />
             <!-- Separator -->
             <el-button type="primary" size="small" @click="handlePreview"> 预览 </el-button>
             <el-button size="small" @click="handleSave"> 保存 </el-button>
@@ -62,26 +74,73 @@
               删除选中
             </el-button>
           </div>
-        </el-header>
-        <el-main
+        </div>
+      </template>
+    </div>
+
+    <!-- 主体布局：左侧面板、中间画布、右侧面板 -->
+    <div class="editor-main">
+      <!-- 左侧面板，支持左右收缩 -->
+      <div class="left-sidebar" :class="{ collapsed: leftPanelCollapsed }">
+        <div class="panel-toggle" @click="toggleLeftPanel">
+          <el-icon><ArrowLeft v-if="!leftPanelCollapsed" /><ArrowRight v-else /></el-icon>
+        </div>
+
+        <template v-if="!leftPanelCollapsed">
+          <!-- 物料区 -->
+          <div class="left-panel materials-panel">
+            <h4>物料区</h4>
+            <el-scrollbar>
+              <ul class="material-list">
+                <li
+                  v-for="material in materials"
+                  :key="material.key"
+                  class="material-item"
+                  draggable="true"
+                  :title="material.label"
+                  @dragstart="handleDragStart(material, $event)"
+                  @dragend="handleDragEnd"
+                >
+                  <el-icon :size="32">
+                    <component :is="material.icon" />
+                  </el-icon>
+                </li>
+              </ul>
+            </el-scrollbar>
+          </div>
+          <!-- 图层面板 -->
+          <div class="left-panel layer-panel-container">
+            <LayerPanel />
+          </div>
+        </template>
+      </div>
+
+      <!-- 中间画布区，允许溢出滚动 -->
+      <div class="canvas-container">
+        <div
           ref="canvasMainRef"
           class="canvas-main"
           @dragover.prevent
           @dragenter.prevent
           @dragleave.prevent
           @drop="handleDrop"
+          @wheel.ctrl.prevent="handleWheel"
         >
-          <!-- 中间画布区 -->
           <div
             ref="canvasPanelRef"
             class="center-panel"
+            :style="{
+              transform: `scale(${scaleValue})`,
+              transformOrigin: `center center`,
+              width: `${canvasWidth}px`,
+              height: `${canvasHeight}px`,
+            }"
             @dragover.prevent
             @dragenter.prevent
             @drop.stop="handleDrop"
             @click.self="handleCanvasClick"
-            @mousedown.left="handleCanvasMouseDown"
+            @mousedown="handleCanvasMouseDown"
           >
-            <!-- Render Canvas Components Recursively -->
             <CanvasComponentRenderer
               v-for="component in canvasStore.components"
               :key="component.id"
@@ -94,7 +153,7 @@
               @rotate-mousedown="handleRotateHandleMouseDown"
             />
 
-            <!-- Alignment Lines -->
+            <!-- 对齐线 -->
             <div
               v-for="(line, index) in alignmentLines"
               :key="`line-${index}`"
@@ -128,24 +187,38 @@
               @mousedown.left.stop="handleBoundingBoxMouseDown"
             />
           </div>
-        </el-main>
-      </el-container>
-      <el-aside width="320px" class="right-aside">
-        <!-- 右侧属性配置区 -->
-        <div class="right-panel">
-          <!-- 使用属性编辑器组件 -->
-          <PropsEditor :selected-component="canvasStore.primarySelectedComponent" />
         </div>
-      </el-aside>
-    </el-container>
+      </div>
+
+      <!-- 右侧面板，支持左右收缩 -->
+      <div class="right-sidebar" :class="{ collapsed: rightPanelCollapsed }">
+        <div class="panel-toggle" @click="toggleRightPanel">
+          <el-icon><ArrowRight v-if="!rightPanelCollapsed" /><ArrowLeft v-else /></el-icon>
+        </div>
+
+        <template v-if="!rightPanelCollapsed">
+          <div class="right-panel">
+            <PropsEditor :selected-component="canvasStore.primarySelectedComponent" />
+          </div>
+        </template>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, watch, nextTick } from 'vue';
 import { useCanvasStore } from '@/stores/canvas'; // 导入 store
 import PropsEditor from '@/components/editor/PropsEditor.vue'; // 导入属性编辑器
-import { ElButton, ElInput, ElMessage, ElMessageBox, ElDivider } from 'element-plus'; // Added ElMessage, ElMessageBox, ElDivider
+import {
+  ElButton,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElDivider,
+  ElButtonGroup,
+  ElInputNumber,
+} from 'element-plus'; // 添加 ElButtonGroup 和 ElInputNumber
 import LayerPanel from '@/components/editor/LayerPanel.vue'; // Import LayerPanel
 import { ElScrollbar, ElContainer, ElAside, ElHeader, ElMain, ElIcon } from 'element-plus'; // Import ElScrollbar etc.
 // Import specific icons
@@ -162,6 +235,11 @@ import {
   Warning,
   Grid,
   DataAnalysis,
+  Plus,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
 } from '@element-plus/icons-vue';
 
 // Import specific icons
@@ -191,6 +269,7 @@ import SVGTriangle from '@/components/custom/SVGTriangle.vue';
 import SVGStar from '@/components/custom/SVGStar.vue';
 import VTable from '@/components/custom/VTable.vue';
 import VChart from '@/components/custom/VChart.vue';
+import VTag from '@/components/custom/VTag.vue'; // 导入Tag组件
 
 // Dynamically import the recursive component renderer to avoid self-reference issues
 const CanvasComponentRenderer = defineAsyncComponent(
@@ -290,6 +369,31 @@ const materials = ref([
     },
   },
   {
+    component: 'VTag',
+    label: '标签',
+    icon: EditPen,
+    propValue: '标签',
+    style: {
+      width: 80,
+      height: 32,
+      fontSize: 12,
+      fontWeight: 400,
+      lineHeight: '',
+      letterSpacing: 0,
+      textAlign: 'center',
+      color: '',
+      borderWidth: 1,
+      borderColor: '',
+      backgroundColor: '',
+      verticalAlign: 'middle',
+      borderRadius: '4px',
+    },
+    props: {
+      tagType: '',
+      tagEffect: 'light',
+    },
+  },
+  {
     component: 'Picture',
     label: '图片',
     icon: IconPicture,
@@ -345,8 +449,8 @@ const materials = ref([
       color: '',
       borderColor: '#000',
       borderWidth: 1,
-      borderStyle: 'solid',
       backgroundColor: '',
+      borderStyle: 'solid',
       borderRadius: '50%' /* Visual consistency */,
       verticalAlign: 'middle',
     },
@@ -458,11 +562,17 @@ const handleDragStart = (material, event) => {
   draggedMaterialIndex = index; // 保存索引
 
   try {
-    // 传递索引
-    event.dataTransfer.setData('text/plain', index.toString()); // 存储索引为字符串
+    // 传递索引和类型标识，以便在drop时能区分来源
+    event.dataTransfer.setData(
+      'application/json',
+      JSON.stringify({
+        type: 'material',
+        index: index,
+      })
+    );
     event.dataTransfer.effectAllowed = 'copy';
 
-    // 设置拖拽图像（保持不变）
+    // 设置拖拽图像
     if (typeof event.dataTransfer.setDragImage === 'function') {
       const dragIcon = document.createElement('div');
       dragIcon.textContent = material.label || '拖拽';
@@ -489,6 +599,8 @@ const getComponentByType = (type) => {
       return VText;
     case 'VButton':
       return VButton;
+    case 'VTag':
+      return VTag;
     case 'Picture':
       return Picture;
     case 'RectShape':
@@ -524,20 +636,29 @@ const handleDrop = (event) => {
 
   let materialIndex = -1;
   try {
-    const data = event.dataTransfer.getData('text/plain');
-    console.log('DataTransfer data:', data);
-    if (data !== null && data !== '') {
-      materialIndex = parseInt(data, 10); // 解析索引
-      console.log('从dataTransfer获取索引成功:', materialIndex);
+    const jsonData = event.dataTransfer.getData('application/json');
+    console.log('DataTransfer data:', jsonData);
+
+    if (jsonData) {
+      const data = JSON.parse(jsonData);
+      if (data.type === 'material') {
+        materialIndex = data.index;
+        console.log('从dataTransfer获取物料索引成功:', materialIndex);
+      }
     } else {
-      // 兼容之前的备选方案（如果需要）
+      // 兼容之前的备选方案
       if (draggedMaterialIndex !== null) {
         materialIndex = draggedMaterialIndex;
         console.log('使用备选索引:', materialIndex);
       }
     }
   } catch (e) {
-    console.error('解析拖拽数据（索引）失败:', e);
+    console.error('解析拖拽数据失败:', e);
+    // 尝试备选方案
+    if (draggedMaterialIndex !== null) {
+      materialIndex = draggedMaterialIndex;
+      console.log('使用备选索引:', materialIndex);
+    }
   }
 
   // 清理备选索引
@@ -563,12 +684,15 @@ const handleDrop = (event) => {
   }
   console.log('画布引用可用');
 
-  // 计算放置位置 (保持不变)
+  // 计算放置位置，考虑缩放因素
   const canvasRect = canvasPanelRef.value.getBoundingClientRect();
-  let dropLeft = event.clientX - canvasRect.left;
-  let dropTop = event.clientY - canvasRect.top;
+  let dropLeft = (event.clientX - canvasRect.left) / scale.value;
+  let dropTop = (event.clientY - canvasRect.top) / scale.value;
+
+  // 确保位置不小于0
   dropLeft = Math.max(0, dropLeft);
   dropTop = Math.max(0, dropTop);
+
   console.log('计算出的放置位置 (相对于画布): left:', dropLeft, 'top:', dropTop);
 
   // 使用获取到的物料创建组件
@@ -606,6 +730,7 @@ const createComponentFromMaterial = (material, left, top) => {
     case 'VButton':
       props = { text: material.propValue };
       break;
+    case 'VTag':
     case 'Picture':
       if (typeof material.propValue === 'object' && material.propValue !== null) {
         props = material.propValue; // 包含 url
@@ -824,8 +949,8 @@ const handleComponentMouseDown = (component, event) => {
   if (initialSelectedBounds.length === 0) return;
 
   const handleMouseMove = (moveEvent) => {
-    const deltaX = moveEvent.clientX - startX;
-    const deltaY = moveEvent.clientY - startY;
+    const deltaX = (moveEvent.clientX - startX) / scale.value;
+    const deltaY = (moveEvent.clientY - startY) / scale.value;
 
     initialSelectedBounds.forEach((initialBounds) => {
       let currentLeft = initialBounds.initialFloatLeft + deltaX; // 使用原始浮点值计算
@@ -922,8 +1047,8 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
   }));
 
   const handleResizeMouseMove = (moveEvent) => {
-    const deltaX = moveEvent.clientX - startX;
-    const deltaY = moveEvent.clientY - startY;
+    const deltaX = (moveEvent.clientX - startX) / scale.value;
+    const deltaY = (moveEvent.clientY - startY) / scale.value;
     let newLeft = initialBounds.left;
     let newTop = initialBounds.top;
     let newWidth = initialBounds.width;
@@ -1067,7 +1192,7 @@ const handleDelete = () => {
 // --- 新增：键盘事件监听 (Delete 键删除) ---
 const handleKeyDown = (event) => {
   const activeElement = document.activeElement;
-  // 检查焦点是否在输入元素上
+  // 检查焦点是否在输入元素上，如果在，则不处理任何快捷键
   if (
     activeElement &&
     (activeElement.tagName === 'INPUT' ||
@@ -1076,6 +1201,19 @@ const handleKeyDown = (event) => {
   ) {
     return;
   }
+
+  // 优先处理空格键，确保阻止默认滚动行为
+  if (event.code === 'Space') {
+    event.preventDefault(); // 立即阻止默认滚动行为
+    if (!isPanning.value) {
+      // 仅在尚未进入平移模式时设置状态
+      isPanning.value = true;
+      document.body.style.cursor = 'grab';
+    }
+    return; // 处理完空格键后直接返回，避免干扰其他快捷键
+  }
+
+  // 处理其他快捷键...
   // 检查是否有选中组件以及按键是否为 Delete 或 Backspace
   if (
     (event.key === 'Delete' || event.key === 'Backspace') &&
@@ -1085,7 +1223,8 @@ const handleKeyDown = (event) => {
     handleDelete();
   }
   // Add Ctrl+Z / Ctrl+Shift+Z for Undo/Redo
-  if (event.ctrlKey && event.key === 'z') {
+  else if (event.ctrlKey && event.key === 'z') {
+    // 使用 else if 避免重复处理
     event.preventDefault();
     if (event.shiftKey) {
       canvasStore.redo();
@@ -1094,22 +1233,49 @@ const handleKeyDown = (event) => {
     }
   }
   // Add Ctrl+A to select all
-  if (event.ctrlKey && event.key === 'a') {
+  else if (event.ctrlKey && event.key === 'a') {
+    // 使用 else if
     event.preventDefault();
     const allIds = canvasStore.components.map((c) => c.id);
-    canvasStore.selectComponent(null, false); // Clear first? Or directly assign?
-    canvasStore.selectedComponentIds = allIds; // Directly assign for simplicity here
-    // Ideally use an action like `selectAllComponents` in the store
+    canvasStore.selectComponent(null, false); // Clear first
+    canvasStore.selectedComponentIds = allIds; // Assign all
     console.log('Selected all components');
+  }
+};
+
+// 处理空格键释放，关闭平移模式
+const handleKeyUp = (event) => {
+  if (event.code === 'Space' && isPanning.value) {
+    isPanning.value = false;
+    document.body.style.cursor = '';
+
+    // 清理平移相关的事件监听器，以防万一
+    document.removeEventListener('mousemove', handleCanvasPanMove);
+    document.removeEventListener('mouseup', handleCanvasPanUp);
   }
 };
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('keyup', handleKeyUp);
+
+  // 确保scale有正确的初始值
+  scale.value = 1;
+  console.log('初始化缩放比例:', scale.value);
+
+  // 初始化画布平移位置
+  canvasPosition.value = { x: 0, y: 0 };
+
+  // 初始化画布大小
+  nextTick(() => {
+    updateCanvasSize();
+    console.log('画布初始化完成', canvasWidth.value, canvasHeight.value, '缩放比例:', scale.value);
+  });
 });
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown);
+  document.removeEventListener('keyup', handleKeyUp);
 });
 
 // --- Helper Function: Get Style (modified to separate rotation) ---
@@ -1249,7 +1415,36 @@ const selectionBox = ref({
   startY: 0,
 });
 
+// 处理画布鼠标按下事件，开始拖拽画布或选择框
 const handleCanvasMouseDown = (event) => {
+  // 如果按下空格键进入平移模式，则开始拖拽画布
+  if (isPanning.value) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // 记录起始点
+    panStartX.value = event.clientX - canvasPosition.value.x;
+    panStartY.value = event.clientY - canvasPosition.value.y;
+
+    // *** 保持光标为 grab (不再设置为 grabbing) ***
+    // document.body.style.cursor = 'grabbing';
+
+    // 添加鼠标移动和释放事件
+    document.addEventListener('mousemove', handleCanvasPanMove);
+    document.addEventListener('mouseup', handleCanvasPanUp);
+
+    // 平移模式下不清除选择框
+    // if (selectionBox.value.visible) {
+    //   selectionBox.value.visible = false;
+    //   selectionBox.value.width = 0;
+    //   selectionBox.value.height = 0;
+    //   document.removeEventListener('mousemove', handleSelectionMouseMove);
+    //   document.removeEventListener('mouseup', handleSelectionMouseUp);
+    // }
+    return; // 确保在平移模式下，不会继续执行下面的选择框逻辑
+  }
+
+  // 如果不是平移模式，则执行原有的选择框逻辑
   if (event.button !== 0) return; // 只处理鼠标左键
 
   // 只有直接点击画布时才启动框选，避免和组件交互冲突
@@ -1259,8 +1454,8 @@ const handleCanvasMouseDown = (event) => {
   event.stopPropagation();
 
   const rect = canvasPanelRef.value.getBoundingClientRect();
-  const startX = event.clientX - rect.left;
-  const startY = event.clientY - rect.top;
+  const startX = (event.clientX - rect.left) / scale.value;
+  const startY = (event.clientY - rect.top) / scale.value;
 
   selectionBox.value = {
     visible: true,
@@ -1277,12 +1472,82 @@ const handleCanvasMouseDown = (event) => {
   document.addEventListener('mouseup', handleSelectionMouseUp);
 };
 
+// 处理画布平移时鼠标移动
+const handleCanvasPanMove = (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+
+  // 确保仍然在平移模式
+  if (!isPanning.value) {
+    document.removeEventListener('mousemove', handleCanvasPanMove);
+    document.removeEventListener('mouseup', handleCanvasPanUp);
+    return;
+  }
+
+  // 平移时不取消选择框
+  // if (selectionBox.value.visible) {
+  //   selectionBox.value.visible = false;
+  //   selectionBox.value.width = 0;
+  //   selectionBox.value.height = 0;
+  //   document.removeEventListener('mousemove', handleSelectionMouseMove);
+  //   document.removeEventListener('mouseup', handleSelectionMouseUp);
+  // }
+
+  const newX = event.clientX - panStartX.value;
+  const newY = event.clientY - panStartY.value;
+
+  // 更新画布位置
+  canvasPosition.value = { x: newX, y: newY };
+
+  // 应用新位置到画布主体
+  if (canvasMainRef.value) {
+    canvasMainRef.value.style.transform = `translate(${newX}px, ${newY}px)`;
+  }
+};
+
+// 处理画布平移结束
+const handleCanvasPanUp = (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+
+  // 检查是否仍在平移模式
+  if (!isPanning.value) {
+    // 如果意外触发，确保清理监听器
+    document.removeEventListener('mousemove', handleCanvasPanMove);
+    document.removeEventListener('mouseup', handleCanvasPanUp);
+    // 恢复默认光标，以防万一
+    if (document.body.style.cursor === 'grabbing' || document.body.style.cursor === 'grab') {
+      document.body.style.cursor = '';
+    }
+    return;
+  }
+
+  // 鼠标已松开，但空格键可能还按着。
+  // 光标样式保持 grabbing 不变，直到空格键松开 (handleKeyUp)
+  // document.body.style.cursor = 'grab'; // <- 移除这一行
+
+  // 清理移动和释放监听器
+  document.removeEventListener('mousemove', handleCanvasPanMove);
+  document.removeEventListener('mouseup', handleCanvasPanUp);
+
+  // isPanning 状态和光标的最终恢复由 handleKeyUp 处理
+};
+
+// 处理选择框拖动
 const handleSelectionMouseMove = (event) => {
-  if (!selectionBox.value.visible) return;
+  // 如果处于平移模式，则不处理选择框拖动
+  if (isPanning.value) {
+    return;
+  }
+
+  // 如果选择框不可见，也返回
+  if (!selectionBox.value.visible) {
+    return;
+  }
 
   const rect = canvasPanelRef.value.getBoundingClientRect();
-  const currentX = event.clientX - rect.left;
-  const currentY = event.clientY - rect.top;
+  const currentX = (event.clientX - rect.left) / scale.value;
+  const currentY = (event.clientY - rect.top) / scale.value;
 
   // 计算框选区域的位置和大小
   const startX = selectionBox.value.startX;
@@ -1307,7 +1572,19 @@ const handleSelectionMouseMove = (event) => {
 };
 
 const handleSelectionMouseUp = (event) => {
-  if (!selectionBox.value.visible) return;
+  // 如果处于平移模式，则不处理选择框释放
+  if (isPanning.value) {
+    document.removeEventListener('mousemove', handleSelectionMouseMove);
+    document.removeEventListener('mouseup', handleSelectionMouseUp);
+    return;
+  }
+
+  // 如果选择框不可见，也清理并返回
+  if (!selectionBox.value.visible) {
+    document.removeEventListener('mousemove', handleSelectionMouseMove);
+    document.removeEventListener('mouseup', handleSelectionMouseUp);
+    return;
+  }
 
   document.removeEventListener('mousemove', handleSelectionMouseMove);
   document.removeEventListener('mouseup', handleSelectionMouseUp);
@@ -1479,8 +1756,8 @@ const handleBoundingBoxMouseDown = (event) => {
   if (initialComponentPositions.length === 0) return;
 
   const handleBoundingBoxMouseMove = (moveEvent) => {
-    const deltaX = moveEvent.clientX - startX;
-    const deltaY = moveEvent.clientY - startY;
+    const deltaX = (moveEvent.clientX - startX) / scale.value;
+    const deltaY = (moveEvent.clientY - startY) / scale.value;
 
     // 更新所有选中组件的位置
     initialComponentPositions.forEach((initialPos) => {
@@ -1490,7 +1767,6 @@ const handleBoundingBoxMouseDown = (event) => {
       // 计算新位置
       const newLeft = initialPos.left + deltaX;
       const newTop = initialPos.top + deltaY;
-
       // 更新组件位置
       component.style = {
         ...component.style,
@@ -1521,198 +1797,378 @@ const handleBoundingBoxMouseDown = (event) => {
   document.addEventListener('mousemove', handleBoundingBoxMouseMove);
   document.addEventListener('mouseup', handleBoundingBoxMouseUp);
 };
+
+// 新增：面板收缩状态
+const leftPanelCollapsed = ref(false);
+const rightPanelCollapsed = ref(false);
+const headerCollapsed = ref(false);
+
+// 画布尺寸设置
+const canvasWidth = ref(1200);
+const canvasHeight = ref(800);
+
+// 缩放相关的状态
+const scale = ref(1); // 缩放比例，确保初始值为1
+const MIN_SCALE = 0.3; // 最小缩放比例 (30%)
+const MAX_SCALE = 3.0; // 最大缩放比例 (300%)
+const SCALE_STEP = 0.1; // 缩放步长
+
+// 画布平移相关状态
+const canvasPosition = ref({ x: 0, y: 0 });
+const isPanning = ref(false);
+const panStartX = ref(0);
+const panStartY = ref(0);
+
+// 缩放控制函数
+const zoomIn = () => {
+  if (scale.value < MAX_SCALE) {
+    scale.value = Math.min(MAX_SCALE, scale.value + SCALE_STEP);
+  }
+};
+
+const zoomOut = () => {
+  if (scale.value > MIN_SCALE) {
+    scale.value = Math.max(MIN_SCALE, scale.value - SCALE_STEP);
+  }
+};
+
+const resetZoom = () => {
+  scale.value = 1;
+};
+
+// 处理鼠标滚轮缩放
+const handleWheel = (event) => {
+  if (event.ctrlKey) {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
+    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale.value + delta));
+    scale.value = newScale;
+  }
+};
+
+// 面板收缩切换函数
+const toggleLeftPanel = () => {
+  leftPanelCollapsed.value = !leftPanelCollapsed.value;
+};
+
+const toggleRightPanel = () => {
+  rightPanelCollapsed.value = !rightPanelCollapsed.value;
+};
+
+const toggleHeader = () => {
+  headerCollapsed.value = !headerCollapsed.value;
+};
+
+// 更新画布尺寸
+const updateCanvasSize = () => {
+  if (canvasPanelRef.value) {
+    console.log('更新画布尺寸', canvasWidth.value, canvasHeight.value);
+    canvasPanelRef.value.style.width = `${canvasWidth.value}px`;
+    canvasPanelRef.value.style.height = `${canvasHeight.value}px`;
+
+    // 确保scale有正确的值
+    if (isNaN(scale.value) || scale.value === undefined) {
+      scale.value = 1;
+    }
+  } else {
+    console.warn('画布引用不可用，无法更新尺寸');
+  }
+};
+
+// 新增：缩放比例显示
+const scaleDisplay = computed(() => {
+  const percent = scale.value ? Math.round(scale.value * 100) : 100;
+  return `${percent}%`;
+});
+
+// 新增：缩放值计算属性，确保始终有正确的值
+const scaleValue = computed(() => {
+  return scale.value || 1; // 如果scale.value为undefined或NaN，则返回默认值1
+});
 </script>
 
 <style scoped>
+/* 主容器样式 */
 .editor-container {
   height: 100vh;
   width: 100vw;
-  /* 移除 overflow: hidden，避免限制右侧菜单栏的显示 */
-  /* overflow: hidden; */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
+/* 顶部工具栏样式 */
 .editor-header {
+  width: 100%;
+  background-color: #fff;
+  border-bottom: 1px solid #ebeef5;
+  z-index: 100;
+  position: relative;
+  transition: height 0.3s;
+}
+
+.editor-header.collapsed {
+  height: 30px;
+}
+
+.header-toggle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 16px;
+  background-color: #f5f7fa;
+  border: 1px solid #ebeef5;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
-  border-bottom: 1px solid #ebeef5;
+  padding: 10px 20px;
   height: 60px;
-  background-color: #fff; /* 确保有背景色 */
-  z-index: 10; /* 确保在其他元素之上 */
 }
 
 .header-left,
-.header-right {
+.header-right,
+.header-center {
   display: flex;
   align-items: center;
 }
 
-.header-right .el-button {
-  margin-left: 10px; /* 按钮间距 */
+.header-center {
+  flex: 1;
+  justify-content: center;
 }
 
-.left-aside {
+.header-right .el-button {
+  margin-left: 5px;
+}
+
+/* 主内容区域样式 */
+.editor-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 左侧边栏样式 */
+.left-sidebar {
+  width: 250px;
+  background-color: #fff;
+  border-right: 1px solid #ebeef5;
+  position: relative;
+  transition: width 0.3s;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #ebeef5;
-  padding: 0; /* Remove padding from aside, let panels handle it */
-  height: 100vh; /* Ensure full height */
 }
 
+.left-sidebar.collapsed {
+  width: 30px;
+}
+
+/* 右侧边栏样式 */
+.right-sidebar {
+  width: 320px;
+  background-color: #fff;
+  border-left: 1px solid #ebeef5;
+  position: relative;
+  transition: width 0.3s;
+}
+
+.right-sidebar.collapsed {
+  width: 30px;
+}
+
+/* 面板折叠控制按钮 */
+.panel-toggle {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 40px;
+  background-color: #f5f7fa;
+  border: 1px solid #ebeef5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.left-sidebar .panel-toggle {
+  right: -8px;
+  transform: translateY(-50%);
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+}
+
+.right-sidebar .panel-toggle {
+  left: -8px;
+  transform: translateY(-50%);
+  border-left: none;
+  border-radius: 0 4px 4px 0;
+}
+
+/* 画布容器样式 */
+.canvas-container {
+  flex: 1;
+  background-color: #f5f7fa;
+  position: relative;
+  overflow: auto;
+}
+
+/* 画布主体样式 */
+.canvas-main {
+  padding: 20px;
+  min-width: max-content;
+  min-height: max-content;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.1s ease;
+}
+
+/* 中心画布样式 */
+.center-panel {
+  background-color: #fff;
+  position: relative;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s ease;
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+    linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px);
+  background-size:
+    5px 5px,
+    5px 5px,
+    25px 25px,
+    25px 25px;
+}
+
+/* 左侧面板样式 */
 .left-panel {
-  /* Common styles for panels within left aside */
-  padding: 0; /* Panels control their internal padding */
-  overflow: hidden; /* Prevent content spillover */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .materials-panel {
-  height: 50%; /* Example: Allocate top 50% height */
-  border-bottom: 1px solid #eee; /* Separator */
-  display: flex;
-  flex-direction: column;
+  height: 50%;
+  border-bottom: 1px solid #ebeef5;
 }
 
 .materials-panel h4 {
-  margin: 0;
   padding: 10px;
+  margin: 0;
+  border-bottom: 1px solid #ebeef5;
   text-align: center;
-  border-bottom: 1px solid #eee;
-  flex-shrink: 0;
 }
 
-.materials-panel .el-scrollbar {
-  flex-grow: 1;
-  /* padding: 5px; */ /* Remove padding here, add to list */
+.layer-panel-container {
+  height: 50%;
 }
 
+/* 材料列表样式 */
 .material-list {
   list-style: none;
-  padding: 10px; /* Keep some padding */
+  padding: 10px;
   margin: 0;
-  display: grid; /* Use grid for better alignment */
-  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); /* Adjust column width slightly */
-  /* Match visual-drag-demo gap more closely */
-  gap: 10px 19px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 10px;
 }
 
 .material-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  border: 1px solid #ddd; /* Match original border */
+  padding: 8px;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
   cursor: grab;
-  text-align: center;
   background-color: #fff;
-  transition: all 0.2s ease;
-  user-select: none;
-  /* Match original height */
+  transition: all 0.2s;
   height: 40px;
-  width: 100%; /* Let grid control width based on columns */
 }
 
 .material-item:hover {
-  background-color: #f5f7fa;
-  border-color: #c0c4cc;
-  color: #409eff;
-  box-shadow: none; /* Remove custom shadow on hover if not in original */
+  border-color: #409eff;
+  box-shadow: 0 0 5px rgba(64, 158, 255, 0.3);
 }
 
-/* Adjust icon size */
-.material-item .el-icon {
-  margin-bottom: 0;
-  font-size: 20px; /* Adjust icon size */
-}
-
-/* Hide text span (already removed from template, but safe to keep) */
-/* .material-item span { display: none; } */
-
-.layer-panel-container {
-  height: 50%; /* Example: Allocate bottom 50% height */
-  /* LayerPanel component will fill this container */
-}
-
-/* Ensure the layer panel inside fills its container */
-.layer-panel-container > :deep(.layer-panel) {
-  /* Use :deep if needed */
-  height: 100%;
-}
-
-.center-panel,
+/* 右侧属性面板样式 */
 .right-panel {
-  padding: 10px;
-}
-
-.right-panel {
-  padding: 0; /* Keep this if PropsEditor has padding */
-}
-
-.center-panel {
-  position: relative;
   height: 100%;
-  background-color: #fff;
-  padding: 0;
-  overflow: hidden;
-  /* 修正网格背景 - 为每个渐变设置大小 */
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-    /* 更淡的细竖线 */ linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-    /* 更淡的细横线 */ linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
-    /* 稍深的粗竖线 */ linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px); /* 稍深的粗横线 */
-  background-size:
-    5px 5px,
-    /* 细线大小 */ 5px 5px,
-    25px 25px,
-    /* 粗线大小 (5*5) */ 25px 25px;
-  user-select: none;
+  overflow: auto;
 }
 
+/* 画布组件样式 */
 .canvas-component {
   position: absolute;
   cursor: move;
-  border: 1px solid transparent; /* Default border */
   transition: border-color 0.2s;
-  transform-origin: center center; /* Ensure rotation happens around the center */
+  transform-origin: center center;
 }
 
 .canvas-component.selected {
-  border: 1px solid transparent; /* 不显示选中边框，仅保留拖拽点 */
+  border: 1px solid #409eff;
 }
 
-/* Make inner component fill the container */
-.canvas-component > *:not(.resize-handles) {
-  width: 100%;
-  height: 100%;
-  pointer-events: none; /* Let wrapper handle events */
-  display: block; /* Ensure block layout */
-  box-sizing: border-box; /* Include border/padding in size if any */
-}
-
-/* Resize Handles Container (Optional, for structure) */
-.resize-handles {
+/* 对齐线样式 */
+.alignment-line {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none; /* Container doesn't block */
+  background-color: #ff0000;
+  z-index: 99;
+  pointer-events: none;
 }
 
-/* Individual Resize Handle Style */
+.alignment-line.vertical {
+  width: 1px;
+}
+
+.alignment-line.horizontal {
+  height: 1px;
+}
+
+/* 选择框样式 */
+.selection-box {
+  position: absolute;
+  border: 1px dashed #1890ff;
+  background-color: rgba(24, 144, 255, 0.1);
+  z-index: 98;
+  pointer-events: none;
+}
+
+/* 多选边界框样式 */
+.selection-bounding-box {
+  position: absolute;
+  border: 2px dashed #1890ff;
+  background-color: rgba(24, 144, 255, 0.05);
+  z-index: 97;
+  cursor: move;
+}
+
+/* 调整大小的控制点 */
 .resize-handle {
   position: absolute;
   width: 8px;
   height: 8px;
   background-color: #fff;
   border: 1px solid #409eff;
-  border-radius: 50%; /* Circular handles */
-  pointer-events: auto; /* Handles should be interactive */
-  z-index: 10; /* Ensure handles are above component content if overlapping */
+  border-radius: 50%;
+  pointer-events: auto;
+  z-index: 10;
 }
 
-/* Positioning Handles */
 .resize-handle.top-left {
   top: -4px;
   left: -4px;
@@ -1758,171 +2214,46 @@ const handleBoundingBoxMouseDown = (event) => {
   cursor: nwse-resize;
 }
 
-/* NEW: Alignment Line Styles */
-.alignment-line {
-  position: absolute;
-  background-color: #ff0000; /* Red lines */
-  z-index: 99; /* Ensure lines are visible above components */
-  pointer-events: none; /* Lines should not be interactive */
-}
-
-/* 框选样式 */
-.selection-box {
-  position: absolute;
-  border: 1px dashed #1890ff;
-  background-color: rgba(24, 144, 255, 0.1);
-  z-index: 98; /* 确保在组件上方但在对齐线下方 */
-  pointer-events: none; /* 不接收鼠标事件 */
-}
-
-/* 多选边界框样式 */
-.selection-bounding-box {
-  position: absolute;
-  border: 2px dashed #1890ff;
-  background-color: rgba(24, 144, 255, 0.05);
-  z-index: 97; /* 确保在组件上方但在框选框下方 */
-  cursor: move; /* 显示移动光标 */
-}
-
-.alignment-line.vertical {
-  width: 1px;
-  /* height is set dynamically via style */
-}
-
-.alignment-line.horizontal {
-  height: 1px;
-  /* width is set dynamically via style */
-}
-
-/* Add data-component-id to canvas-component for easier selection in script */
-.canvas-component {
-  /* ... existing styles ... */
-  transform-origin: center center; /* Ensure rotation happens around the center */
-}
-
+/* 旋转控制点 */
 .resize-handle.rotate-handle {
-  top: -25px; /* Position above the top-center handle */
+  top: -25px;
   left: 50%;
   transform: translateX(-50%);
-  width: 16px; /* Make it slightly larger */
+  width: 16px;
   height: 16px;
-  border-radius: 50%;
   background-color: #409eff;
-  border: 1px solid #fff;
-  cursor: grab; /* Or a specific rotation cursor */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
+  border: 2px solid #fff;
+  cursor: grab;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .resize-handle.rotate-handle:active {
   cursor: grabbing;
 }
 
-.resize-handle.rotate-handle svg {
-  width: 10px;
-  height: 10px;
-}
-
-/* 可以添加更多样式来美化各个区域 */
-
-/* 新增：确保画布能接收拖拽事件 */
-.canvas-main {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  padding: 0; /* 移除内边距 */
-  overflow: auto; /* 允许滚动 */
-  background-color: #f5f7fa; /* 背景色 */
-}
-
-.center-panel {
-  position: relative;
-  min-width: 1200px; /* 最小宽度，确保内容不会被挤压 */
-  min-height: 800px; /* 最小高度，确保有足够空间 */
-  width: 100%;
-  height: 100%;
-  background-color: #fff;
-  padding: 0;
-  /* 网格背景保持不变 */
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-    linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px);
-  background-size:
-    5px 5px,
-    5px 5px,
-    25px 25px,
-    25px 25px;
-  user-select: none;
-}
-
-/* 右侧面板样式 */
-.right-aside {
-  height: 100%;
-  border-left: 1px solid #ebeef5;
-  background-color: #fff;
+/* 画布尺寸设置区域 */
+.canvas-size-settings {
   display: flex;
-  flex-direction: column;
-  width: 320px !important; /* 扩大宽度以适应内容 */
-  min-width: 320px;
-  overflow-x: hidden; /* 防止水平溢出 */
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+  align-items: center;
+  gap: 5px;
 }
 
-.right-panel {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-}
-
-.right-panel :deep(.props-editor) {
-  height: 100%;
-  width: 100%;
-  overflow-y: auto;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.right-panel :deep(.el-form-item__label) {
+.canvas-size-settings span {
   color: #606266;
 }
 
-.right-panel :deep(.el-input__inner) {
-  background-color: #fff;
-  color: #606266;
-  border-color: #dcdfe6;
+/* 移除所有按钮的轮廓线 */
+:deep(.el-button) {
+  outline: none !important;
+}
+:deep(.el-button:focus),
+:deep(.el-button:active) {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
-.right-panel :deep(.el-tabs__item.is-top) {
-  color: #606266;
-}
-
-.right-panel :deep(.el-tabs__item.is-top.is-active) {
-  color: #409eff;
-}
-
-.right-panel :deep(.el-collapse) {
-  border-color: #dcdfe6;
-}
-
-.right-panel :deep(.el-collapse-item__header),
-.right-panel :deep(.el-collapse-item__wrap) {
-  border-color: #dcdfe6;
-  background-color: #fff;
-  color: #606266;
-}
-
-/* 确保画布能接收拖拽事件 */
-.canvas-main {
-  width: 100%;
-  height: 100%;
-  position: relative;
+/* 确保所有可交互元素在点击时没有轮廓线 */
+:deep(*:focus) {
+  outline: none !important;
 }
 </style>

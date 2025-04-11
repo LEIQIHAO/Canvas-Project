@@ -99,3 +99,22 @@ body::-webkit-scrollbar-thumb {
 body::-webkit-scrollbar-track {
   background-color: #f8f8f8;
 }
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+button,
+.el-button,
+.el-button:focus,
+.el-button:active,
+.el-button:hover {
+  outline: none !important;
+  box-shadow: none !important;
+}
+input,
+textarea,
+.el-input__inner,
+.el-input__inner:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}

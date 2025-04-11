@@ -51,7 +51,19 @@ button:hover {
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: none !important;
+}
+
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.el-button:focus,
+.el-button:active,
+.el-button:hover {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .card {
@@ -76,4 +88,44 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* 全局禁用所有按钮和元素的轮廓 */
+button,
+input,
+select,
+textarea,
+a,
+*[tabindex],
+.el-button,
+.el-button:focus,
+.el-button:active,
+.el-button:hover,
+.el-input__inner,
+.el-input__inner:focus,
+.el-textarea__inner,
+.el-textarea__inner:focus,
+.el-select-dropdown__item,
+.el-select-dropdown__item.selected,
+.el-slider__button.hover,
+.el-slider__button:hover,
+.el-tabs__item,
+.el-tabs__item.is-active,
+.el-menu-item,
+.el-menu-item.is-active,
+.el-radio__inner,
+.el-checkbox__inner,
+.el-switch__core,
+.el-date-editor .el-input__inner,
+.el-date-editor .el-input__inner:focus,
+.el-pagination button,
+.el-tree-node__content:hover,
+.el-dropdown-menu__item {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 在可交互元素获取焦点时提供替代的视觉样式 - 可选 */
+.el-button:focus {
+  border-color: var(--el-color-primary) !important;
 }

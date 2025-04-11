@@ -103,4 +103,29 @@ img {
 // 滚动条样式
 body {
   .scrollbar();
+}
+
+// 确保所有元素没有焦点轮廓
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+// 移除所有按钮的轮廓线
+button, 
+.el-button, 
+.el-button:focus, 
+.el-button:active, 
+.el-button:hover {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+// 确保input元素也没有轮廓线
+input, 
+textarea, 
+.el-input__inner, 
+.el-input__inner:focus {
+  outline: none !important;
+  box-shadow: none !important;
 } 

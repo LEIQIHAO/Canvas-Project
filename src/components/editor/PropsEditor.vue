@@ -8,7 +8,13 @@
 
       <div class="attr-list">
         <div class="component-type">
-          <span>组件类型：{{ selectedComponent.label || selectedComponent.key }}</span>
+          <el-tag
+            size="medium"
+            :type="getTagType(selectedComponent.key)"
+            :effect="getTagEffect(selectedComponent.key)"
+          >
+            {{ selectedComponent.label || selectedComponent.key }}
+          </el-tag>
         </div>
 
         <el-collapse v-model="activeCollapseNames" class="attr-collapse">
@@ -271,6 +277,33 @@ const componentProps = ref({});
 
 // Keep track of active collapse panels
 const activeCollapseNames = ref(['transform', 'props']); // Open by default
+
+// 根据组件类型获取Tag标签的类型
+const getTagType = (componentKey) => {
+  const typeMap = {
+    VText: '',
+    VButton: 'primary',
+    VTag: 'success',
+    Picture: 'warning',
+    RectShape: 'info',
+    LineShape: 'info',
+    CircleShape: 'info',
+    SVGStar: 'danger',
+    SVGTriangle: 'danger',
+    VTable: '',
+    VChart: 'warning',
+    VInput: 'primary',
+    group: 'success',
+  };
+  return typeMap[componentKey] || '';
+};
+
+// 根据组件类型获取Tag标签的效果
+const getTagEffect = (componentKey) => {
+  // 部分组件使用plain效果，其他使用light效果
+  const plainEffectComponents = ['VButton', 'VTag', 'VInput', 'VTable', 'VChart'];
+  return plainEffectComponents.includes(componentKey) ? 'plain' : 'light';
+};
 
 // Helper to parse pixel values or return 0
 const parsePx = (value) => {
@@ -607,6 +640,13 @@ const latestSelectedComponent = computed(() => {
   color: #606266;
   padding: 5px 0;
   border-bottom: 1px dashed #e4e7ed;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.component-type span {
+  margin-right: 8px;
 }
 
 .attr-collapse {
