@@ -293,7 +293,7 @@ const materials = ref([
     component: 'Picture',
     label: '图片',
     icon: IconPicture,
-    propValue: { url: 'https://via.placeholder.com/300x200' }, // 保持 props 结构
+    propValue: { url: 'https://picsum.photos/200/300' }, // 保持 props 结构
     // 与 visual-drag-demo/component-list.js 对齐 (添加 borderRadius)
     style: { width: 300, height: 200, borderRadius: '' },
   },
@@ -345,8 +345,8 @@ const materials = ref([
       color: '',
       borderColor: '#000',
       borderWidth: 1,
-      backgroundColor: '',
       borderStyle: 'solid',
+      backgroundColor: '',
       borderRadius: '50%' /* Visual consistency */,
       verticalAlign: 'middle',
     },
@@ -611,7 +611,7 @@ const createComponentFromMaterial = (material, left, top) => {
         props = material.propValue; // 包含 url
       } else {
         // 确保即使 propValue 不是对象也有默认值
-        props = { url: material.propValue || 'https://via.placeholder.com/300x200' };
+        props = { url: material.propValue || 'https://picsum.photos/200/300' };
       }
       break;
     case 'SVGStar':

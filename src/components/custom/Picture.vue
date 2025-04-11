@@ -44,7 +44,7 @@ watch(
 const finalUrl = computed(() => {
   const directUrl = props.url;
   const elementUrl = props.element?.props?.url;
-  const result = directUrl || elementUrl || 'https://via.placeholder.com/300x200';
+  const result = directUrl || elementUrl || 'https://picsum.photos/200/300';
 
   console.log('Picture URL 解析:', {
     directUrl,

@@ -301,7 +301,6 @@ const updateStyle = () => {
     width: `${styleProps.value.width || 10}px`,
     height: `${styleProps.value.height || 10}px`,
     transform: `rotate(${styleProps.value.rotation || 0}deg)`,
-    // 确保zIndex是数字，不是字符串
     zIndex: parseInt(styleProps.value.zIndex || 1, 10),
     opacity: styleProps.value.opacity === undefined ? 1 : styleProps.value.opacity,
     backgroundColor: styleProps.value.backgroundColor,
@@ -342,18 +341,8 @@ const updateStyle = () => {
   });
 
   if (Object.keys(finalStyleToSend).length === 0) {
-    console.log('[PropsEditor updateStyle] No valid style changes to send.');
     return;
   }
-
-  // 记录zIndex更新信息
-  if ('zIndex' in finalStyleToSend) {
-    console.log(
-      `[PropsEditor] 更新组件 ${props.selectedComponent.id} 的 zIndex: ${finalStyleToSend.zIndex}`
-    );
-  }
-
-  console.log('[PropsEditor updateStyle] Sending filtered style to store:', finalStyleToSend);
 
   // 直接更新store中的组件
   canvasStore.updateComponentStyle(props.selectedComponent.id, finalStyleToSend);
@@ -361,7 +350,6 @@ const updateStyle = () => {
 
 const updateProps = () => {
   if (!props.selectedComponent) return;
-  console.log('[PropsEditor updateProps] Sending props to store:', { ...componentProps.value });
 
   // 直接使用canvasStore的API更新组件属性
   canvasStore.updateComponentProps(props.selectedComponent.id, { ...componentProps.value });
@@ -371,14 +359,10 @@ const updateProps = () => {
 watch(
   () => props.selectedComponent, // Source: the selected component prop
   (newVal, oldVal) => {
-    console.log('[PropsEditor Watcher] Triggered. New ID:', newVal?.id, 'Old ID:', oldVal?.id);
-
     // --- Reset/Update Logic WITHOUT extra delays ---
 
     // Condition 1: A new, different component is selected
     if (newVal && newVal.id !== oldVal?.id) {
-      console.log(`[PropsEditor Watcher] Updating for component ${newVal.id}`);
-
       // 查找canvasStore中的最新组件数据
       const latestComponent = canvasStore.components.find((c) => c.id === newVal.id) || newVal;
 
@@ -443,14 +427,8 @@ watch(
       // --- Update component props ---
       componentProps.value = { ...cProps };
 
-      console.log('[PropsEditor Watcher] State updated (new component).', {
-        styleProps: JSON.parse(JSON.stringify(styleProps.value)),
-        componentProps: JSON.parse(JSON.stringify(componentProps.value)),
-      });
-
       // Condition 2: Component is deselected (newVal is null, oldVal existed)
     } else if (!newVal && oldVal) {
-      console.log('[PropsEditor Watcher] Component deselected, resetting form.');
       // Reset the form fields using default values
       styleProps.value = {
         left: 0,
@@ -472,13 +450,12 @@ watch(
         color: '#000000',
       };
       componentProps.value = {};
-      console.log('[PropsEditor Watcher] State reset (deselected).');
 
       // Other cases (no state change needed)
     } else if (newVal && oldVal && newVal.id === oldVal.id) {
-      console.log('[PropsEditor Watcher] Same component selected, processing skipped.');
+      // 保持相同的组件，不需要处理
     } else if (!newVal && !oldVal) {
-      console.log('[PropsEditor Watcher] Initial load with no selection, processing skipped.');
+      // 初始加载时无选择，不需要处理
     }
   },
   { immediate: true, deep: false } // Run immediately, shallow watch
@@ -489,8 +466,6 @@ watch(
   () => props.selectedComponent?.style,
   (newStyle) => {
     if (!props.selectedComponent || !newStyle) return;
-
-    console.log('[PropsEditor] 组件Style变化检测:', props.selectedComponent.id);
 
     // 更新所有样式属性，而不仅仅是位置相关属性
     if (newStyle.left !== undefined) {
@@ -553,8 +528,6 @@ watch(
   () => props.selectedComponent?.props,
   (newProps) => {
     if (!props.selectedComponent || !newProps) return;
-
-    console.log('[PropsEditor] 组件Props变化检测:', props.selectedComponent.id);
 
     // 更新本地表单的props值
     componentProps.value = { ...newProps };

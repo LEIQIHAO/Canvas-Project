@@ -216,6 +216,12 @@ const emitRotateMouseDown = (event) => {
   border: none !important;
 }
 
+/* For CircleShape, use a special styling approach */
+.canvas-component[data-component-key='CircleShape'] {
+  border: none !important;
+  background-color: transparent !important;
+}
+
 .canvas-component.selected {
   /* Highlight selected components/groups */
   /* Use outline instead of border for non-SVG components to avoid layout shifts */
@@ -230,6 +236,25 @@ const emitRotateMouseDown = (event) => {
 .canvas-component.selected[data-component-key^='SVG'] {
   outline: none;
   /* Border is already handled above */
+}
+
+/* Special case for CircleShape when selected - use dashed outline for selection */
+.canvas-component.selected[data-component-key='CircleShape'] {
+  outline: none;
+}
+
+/* 为CircleShape组件添加选中时的圆形虚线轮廓效果 */
+.canvas-component.selected[data-component-key='CircleShape'] .circle-shape::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border-radius: 50%;
+  border: 1px dashed #409eff;
+  pointer-events: none;
+  box-sizing: border-box;
 }
 
 /* Resize Handles Container - positioned relative to the .canvas-component div */
