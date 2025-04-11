@@ -79,6 +79,7 @@
             @dragenter.prevent
             @drop.stop="handleDrop"
             @click.self="handleCanvasClick"
+            @mousedown.left="handleCanvasMouseDown"
           >
             <!-- Render Canvas Components Recursively -->
             <CanvasComponentRenderer
@@ -101,6 +102,31 @@
               :class="line.type"
               :style="line.style"
             />
+
+            <!-- 选择框 -->
+            <div
+              v-if="selectionBox.visible"
+              class="selection-box"
+              :style="{
+                left: `${selectionBox.left}px`,
+                top: `${selectionBox.top}px`,
+                width: `${selectionBox.width}px`,
+                height: `${selectionBox.height}px`,
+              }"
+            />
+
+            <!-- 多选边界框 -->
+            <div
+              v-if="selectionBoundingBox.visible"
+              class="selection-bounding-box"
+              :style="{
+                left: `${selectionBoundingBox.left}px`,
+                top: `${selectionBoundingBox.top}px`,
+                width: `${selectionBoundingBox.width}px`,
+                height: `${selectionBoundingBox.height}px`,
+              }"
+              @mousedown.left.stop="handleBoundingBoxMouseDown"
+            />
           </div>
         </el-main>
       </el-container>
@@ -116,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, watch } from 'vue';
 import { useCanvasStore } from '@/stores/canvas'; // 导入 store
 import PropsEditor from '@/components/editor/PropsEditor.vue'; // 导入属性编辑器
 import { ElButton, ElInput, ElMessage, ElMessageBox, ElDivider } from 'element-plus'; // Added ElMessage, ElMessageBox, ElDivider
@@ -755,14 +781,28 @@ const handleComponentMouseDown = (component, event) => {
   event.stopPropagation();
 
   const clickedId = component.id;
-  const isMultiSelectDrag =
-    canvasStore.selectedComponentIds.includes(clickedId) &&
-    canvasStore.selectedComponentIds.length > 1;
 
-  // If not part of a multi-selection drag, ensure it becomes the single selection
-  if (!isMultiSelectDrag && !canvasStore.selectedComponentIds.includes(clickedId)) {
-    canvasStore.selectComponent(clickedId, false); // Make it the single selected item
+  // 判断当前点击的组件是否已经在多选列表中
+  const isPartOfSelection = canvasStore.selectedComponentIds.includes(clickedId);
+
+  // 如果按住Shift键，则添加或移除点击的组件到多选列表
+  if (event.shiftKey) {
+    if (isPartOfSelection) {
+      // 如果组件已在多选列表中，则移除
+      const updatedSelection = canvasStore.selectedComponentIds.filter((id) => id !== clickedId);
+      canvasStore.selectComponent(null, false); // 先清空
+      updatedSelection.forEach((id) => canvasStore.selectComponent(id, true)); // 重新选择
+    } else {
+      // 添加到多选列表
+      canvasStore.selectComponent(clickedId, true);
+    }
   }
+  // 如果组件不在多选列表中且不是Shift点击，则将其设为唯一选中
+  else if (!isPartOfSelection) {
+    canvasStore.selectComponent(clickedId, false);
+  }
+  // 如果组件已在多选列表中且不是Shift点击，则保持多选状态以便移动
+  // 无需做任何操作，保持当前选择
 
   const startX = event.clientX;
   const startY = event.clientY;
@@ -850,10 +890,9 @@ const handleComponentMouseDown = (component, event) => {
     });
     // 批量更新取整后的坐标
     canvasStore.updateMultipleComponentStyles(finalUpdates);
-    // --- 结束取整 ---
 
-    // 注意：commitCanvasChange 现在不需要了，因为 updateMultipleComponentStyles 已经更新了状态并触发了历史记录
-    // canvasStore.commitCanvasChange(finalComponentsState);
+    // 更新多选边界框
+    updateSelectionBoundingBox();
   };
 
   document.addEventListener('mousemove', handleMouseMove);
@@ -1181,14 +1220,306 @@ const canUngroup = computed(() => {
 
 // --- NEW: Canvas Click Logic ---
 const handleCanvasClick = (event) => {
+  // 如果是拖拽结束，不触发清空选择
+  if (selectionBox.value.visible || selectionBox.value.width > 0 || selectionBox.value.height > 0) {
+    return;
+  }
+
   // 确保是直接点击画布，而不是点击画布上的组件
   if (event.target === canvasPanelRef.value) {
     console.log('Canvas clicked, clearing selection');
-    canvasStore.clearSelection(); // 使用已有的clearSelection函数
+    // 如果按住shift键，则不清除选择，便于多选
+    if (!event.shiftKey) {
+      canvasStore.clearSelection(); // 使用已有的clearSelection函数
+    }
 
     // 清除对齐线
     alignmentLines.value = [];
   }
+};
+
+// --- NEW: Selection Box Logic ---
+const selectionBox = ref({
+  visible: false,
+  left: 0,
+  top: 0,
+  width: 0,
+  height: 0,
+  startX: 0,
+  startY: 0,
+});
+
+const handleCanvasMouseDown = (event) => {
+  if (event.button !== 0) return; // 只处理鼠标左键
+
+  // 只有直接点击画布时才启动框选，避免和组件交互冲突
+  if (event.target !== canvasPanelRef.value) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const rect = canvasPanelRef.value.getBoundingClientRect();
+  const startX = event.clientX - rect.left;
+  const startY = event.clientY - rect.top;
+
+  selectionBox.value = {
+    visible: true,
+    startX: startX,
+    startY: startY,
+    left: startX,
+    top: startY,
+    width: 0,
+    height: 0,
+  };
+
+  // 添加鼠标移动和释放事件
+  document.addEventListener('mousemove', handleSelectionMouseMove);
+  document.addEventListener('mouseup', handleSelectionMouseUp);
+};
+
+const handleSelectionMouseMove = (event) => {
+  if (!selectionBox.value.visible) return;
+
+  const rect = canvasPanelRef.value.getBoundingClientRect();
+  const currentX = event.clientX - rect.left;
+  const currentY = event.clientY - rect.top;
+
+  // 计算框选区域的位置和大小
+  const startX = selectionBox.value.startX;
+  const startY = selectionBox.value.startY;
+
+  // 处理四个方向的拖动
+  if (currentX < startX) {
+    selectionBox.value.left = currentX;
+    selectionBox.value.width = startX - currentX;
+  } else {
+    selectionBox.value.left = startX;
+    selectionBox.value.width = currentX - startX;
+  }
+
+  if (currentY < startY) {
+    selectionBox.value.top = currentY;
+    selectionBox.value.height = startY - currentY;
+  } else {
+    selectionBox.value.top = startY;
+    selectionBox.value.height = currentY - startY;
+  }
+};
+
+const handleSelectionMouseUp = (event) => {
+  if (!selectionBox.value.visible) return;
+
+  document.removeEventListener('mousemove', handleSelectionMouseMove);
+  document.removeEventListener('mouseup', handleSelectionMouseUp);
+
+  // 如果选框太小，可能是意外点击，不执行选择
+  if (selectionBox.value.width < 5 || selectionBox.value.height < 5) {
+    selectionBox.value.visible = false;
+    return;
+  }
+
+  // 选择框选区域内的所有组件
+  const selectedIds = canvasStore.components
+    .filter((component) => isComponentInSelectionBox(component))
+    .map((component) => component.id);
+
+  // 如果有找到组件，则多选它们
+  if (selectedIds.length > 0) {
+    // 使用shift按键来多选
+    if (event.shiftKey) {
+      // 合并已选中和新选中的组件
+      const currentSelectedIds = canvasStore.selectedComponentIds;
+      const newSelectedIds = Array.from(new Set([...currentSelectedIds, ...selectedIds]));
+      canvasStore.selectComponent(null, false); // 先清空
+      newSelectedIds.forEach((id) => canvasStore.selectComponent(id, true)); // 重新选择
+    } else {
+      // 直接选择框选的组件
+      canvasStore.selectComponent(null, false); // 先清空
+      selectedIds.forEach((id) => canvasStore.selectComponent(id, true)); // 重新选择
+    }
+
+    // 更新多选边界框
+    updateSelectionBoundingBox();
+  }
+
+  // 清除选框
+  selectionBox.value.visible = false;
+};
+
+// 判断组件是否在选框内
+const isComponentInSelectionBox = (component) => {
+  if (!component.style) return false;
+
+  const componentLeft = parseFloat(component.style.left);
+  const componentTop = parseFloat(component.style.top);
+  const componentWidth = parseFloat(component.style.width);
+  const componentHeight = parseFloat(component.style.height);
+
+  if (
+    isNaN(componentLeft) ||
+    isNaN(componentTop) ||
+    isNaN(componentWidth) ||
+    isNaN(componentHeight)
+  ) {
+    return false;
+  }
+
+  const componentRight = componentLeft + componentWidth;
+  const componentBottom = componentTop + componentHeight;
+
+  const boxLeft = selectionBox.value.left;
+  const boxTop = selectionBox.value.top;
+  const boxRight = boxLeft + selectionBox.value.width;
+  const boxBottom = boxTop + selectionBox.value.height;
+
+  // 只有当组件的中心点在选框内时才选中组件
+  const componentCenterX = componentLeft + componentWidth / 2;
+  const componentCenterY = componentTop + componentHeight / 2;
+
+  return (
+    componentCenterX >= boxLeft &&
+    componentCenterX <= boxRight &&
+    componentCenterY >= boxTop &&
+    componentCenterY <= boxBottom
+  );
+};
+
+// --- NEW: Selection Bounding Box Logic ---
+const selectionBoundingBox = ref({
+  visible: false,
+  left: 0,
+  top: 0,
+  width: 0,
+  height: 0,
+});
+
+// 计算并更新选中组件的边界框
+const updateSelectionBoundingBox = () => {
+  // 如果没有选中组件或只选中了一个组件，不显示边界框
+  if (canvasStore.selectedComponentIds.length <= 1) {
+    selectionBoundingBox.value.visible = false;
+    return;
+  }
+
+  // 获取所有选中组件的边界
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  // 遍历所有选中的组件
+  canvasStore.selectedComponentIds.forEach((id) => {
+    const component = canvasStore.components.find((c) => c.id === id);
+    if (!component || !component.style) return;
+
+    const left = parseFloat(component.style.left);
+    const top = parseFloat(component.style.top);
+    const width = parseFloat(component.style.width);
+    const height = parseFloat(component.style.height);
+
+    if (isNaN(left) || isNaN(top) || isNaN(width) || isNaN(height)) return;
+
+    // 更新边界值
+    minX = Math.min(minX, left);
+    minY = Math.min(minY, top);
+    maxX = Math.max(maxX, left + width);
+    maxY = Math.max(maxY, top + height);
+  });
+
+  // 如果找到了有效的边界
+  if (minX !== Infinity && minY !== Infinity && maxX !== -Infinity && maxY !== -Infinity) {
+    // 更新边界框
+    selectionBoundingBox.value = {
+      visible: true,
+      left: minX,
+      top: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  } else {
+    selectionBoundingBox.value.visible = false;
+  }
+};
+
+// 监听选中组件的变化，更新边界框
+watch(
+  () => canvasStore.selectedComponentIds,
+  () => {
+    // 更新边界框
+    updateSelectionBoundingBox();
+  },
+  { deep: true, immediate: true }
+);
+
+// 处理边界框的鼠标按下事件
+const handleBoundingBoxMouseDown = (event) => {
+  if (event.button !== 0) return; // 只处理鼠标左键
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const startX = event.clientX;
+  const startY = event.clientY;
+
+  // 获取所有选中组件的初始位置
+  const initialComponentPositions = canvasStore.selectedComponentIds
+    .map((id) => {
+      const component = canvasStore.components.find((c) => c.id === id);
+      if (!component || !component.style) return null;
+
+      return {
+        id: component.id,
+        left: parseFloat(component.style.left) || 0,
+        top: parseFloat(component.style.top) || 0,
+      };
+    })
+    .filter((pos) => pos !== null);
+
+  // 如果没有有效的组件位置，直接返回
+  if (initialComponentPositions.length === 0) return;
+
+  const handleBoundingBoxMouseMove = (moveEvent) => {
+    const deltaX = moveEvent.clientX - startX;
+    const deltaY = moveEvent.clientY - startY;
+
+    // 更新所有选中组件的位置
+    initialComponentPositions.forEach((initialPos) => {
+      const component = canvasStore.components.find((c) => c.id === initialPos.id);
+      if (!component) return;
+
+      // 计算新位置
+      const newLeft = initialPos.left + deltaX;
+      const newTop = initialPos.top + deltaY;
+
+      // 更新组件位置
+      component.style = {
+        ...component.style,
+        left: `${newLeft}px`,
+        top: `${newTop}px`,
+      };
+    });
+
+    // 同时更新边界框位置
+    selectionBoundingBox.value.left += deltaX - (selectionBoundingBox.value.lastDeltaX || 0);
+    selectionBoundingBox.value.top += deltaY - (selectionBoundingBox.value.lastDeltaY || 0);
+    selectionBoundingBox.value.lastDeltaX = deltaX;
+    selectionBoundingBox.value.lastDeltaY = deltaY;
+  };
+
+  const handleBoundingBoxMouseUp = () => {
+    document.removeEventListener('mousemove', handleBoundingBoxMouseMove);
+    document.removeEventListener('mouseup', handleBoundingBoxMouseUp);
+
+    // 提交最终状态到历史记录
+    const finalComponentsState = JSON.parse(JSON.stringify(canvasStore.components));
+    canvasStore.commitCanvasChange(finalComponentsState);
+
+    // 重新计算边界框
+    updateSelectionBoundingBox();
+  };
+
+  document.addEventListener('mousemove', handleBoundingBoxMouseMove);
+  document.addEventListener('mouseup', handleBoundingBoxMouseUp);
 };
 </script>
 
@@ -1433,6 +1764,24 @@ const handleCanvasClick = (event) => {
   background-color: #ff0000; /* Red lines */
   z-index: 99; /* Ensure lines are visible above components */
   pointer-events: none; /* Lines should not be interactive */
+}
+
+/* 框选样式 */
+.selection-box {
+  position: absolute;
+  border: 1px dashed #1890ff;
+  background-color: rgba(24, 144, 255, 0.1);
+  z-index: 98; /* 确保在组件上方但在对齐线下方 */
+  pointer-events: none; /* 不接收鼠标事件 */
+}
+
+/* 多选边界框样式 */
+.selection-bounding-box {
+  position: absolute;
+  border: 2px dashed #1890ff;
+  background-color: rgba(24, 144, 255, 0.05);
+  z-index: 97; /* 确保在组件上方但在框选框下方 */
+  cursor: move; /* 显示移动光标 */
 }
 
 .alignment-line.vertical {
