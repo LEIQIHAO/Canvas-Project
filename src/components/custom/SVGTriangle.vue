@@ -41,7 +41,7 @@ export default {
       // 只从 style.color 获取填充颜色
       const fillColor = this.element.style.color;
       console.log('使用style.color填充:', fillColor);
-      return fillColor && fillColor !== '' ? fillColor : '';
+      return fillColor && fillColor !== '' ? fillColor : 'transparent';
     },
     borderColor() {
       return this.element.style.borderColor || 'black';
