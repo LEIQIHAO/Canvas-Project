@@ -301,7 +301,8 @@ const updateStyle = () => {
     width: `${styleProps.value.width || 10}px`,
     height: `${styleProps.value.height || 10}px`,
     transform: `rotate(${styleProps.value.rotation || 0}deg)`,
-    zIndex: styleProps.value.zIndex === undefined ? 1 : styleProps.value.zIndex,
+    // 确保zIndex是数字，不是字符串
+    zIndex: parseInt(styleProps.value.zIndex || 1, 10),
     opacity: styleProps.value.opacity === undefined ? 1 : styleProps.value.opacity,
     backgroundColor: styleProps.value.backgroundColor,
     borderColor: styleProps.value.borderColor,
@@ -345,6 +346,13 @@ const updateStyle = () => {
     return;
   }
 
+  // 记录zIndex更新信息
+  if ('zIndex' in finalStyleToSend) {
+    console.log(
+      `[PropsEditor] 更新组件 ${props.selectedComponent.id} 的 zIndex: ${finalStyleToSend.zIndex}`
+    );
+  }
+
   console.log('[PropsEditor updateStyle] Sending filtered style to store:', finalStyleToSend);
 
   // 直接更新store中的组件
@@ -370,8 +378,12 @@ watch(
     // Condition 1: A new, different component is selected
     if (newVal && newVal.id !== oldVal?.id) {
       console.log(`[PropsEditor Watcher] Updating for component ${newVal.id}`);
-      const style = newVal.style || {};
-      const cProps = newVal.props || {};
+
+      // 查找canvasStore中的最新组件数据
+      const latestComponent = canvasStore.components.find((c) => c.id === newVal.id) || newVal;
+
+      const style = latestComponent.style || {};
+      const cProps = latestComponent.props || {};
 
       // --- Define Default Values (for fallback only) ---
       const defaultStyles = {
@@ -420,7 +432,7 @@ watch(
       };
 
       // --- Handle specific overrides ---
-      if (newVal.key === 'SVGStar' || newVal.key === 'SVGTriangle') {
+      if (latestComponent.key === 'SVGStar' || latestComponent.key === 'SVGTriangle') {
         // For SVG, ensure backgroundColor in the form is null,
         // and color field gets the actual fill color (which might be in style.color)
         styleProps.value.backgroundColor = null;
@@ -549,6 +561,19 @@ watch(
   },
   { deep: true }
 );
+
+// 获取最新组件数据的帮助函数
+const getLatestComponentData = (componentId) => {
+  if (!componentId) return null;
+  // 总是从canvasStore.components获取最新数据
+  return canvasStore.components.find((c) => c.id === componentId) || null;
+};
+
+// 添加一个computed属性来获取最新的组件数据
+const latestSelectedComponent = computed(() => {
+  if (!props.selectedComponent) return null;
+  return getLatestComponentData(props.selectedComponent.id) || props.selectedComponent;
+});
 </script>
 
 <style scoped>

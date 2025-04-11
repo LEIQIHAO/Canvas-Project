@@ -31,7 +31,7 @@ const circleStyle = computed(() => {
     width: '100%',
     height: '100%',
     borderRadius: '50%', // 圆形关键样式
-    backgroundColor: style.backgroundColor || 'transparent',
+    backgroundColor: style.backgroundColor || '',
     borderWidth: style.borderWidth,
     borderStyle: style.borderStyle || 'solid',
     borderColor: style.borderColor || '#000',

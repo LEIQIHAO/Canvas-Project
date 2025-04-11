@@ -340,7 +340,7 @@ const materials = ref([
       textAlign: 'center',
       color: '',
       borderColor: '#000',
-      backgroundColor: 'transparent',
+      backgroundColor: '',
     },
   },
   {
@@ -358,7 +358,7 @@ const materials = ref([
       textAlign: 'center',
       color: '',
       borderColor: '#000',
-      backgroundColor: 'transparent',
+      backgroundColor: '',
     },
   },
   {
@@ -558,8 +558,16 @@ const createComponentFromMaterial = (material, left, top) => {
   // 2. 特殊处理：确保 SVG 组件有明确的背景色设置
   if (material.component === 'SVGStar' || material.component === 'SVGTriangle') {
     if (!rawStyle.backgroundColor || rawStyle.backgroundColor === '') {
-      console.log(`为 ${material.component} 设置透明背景色`);
-      rawStyle.backgroundColor = 'transparent';
+      console.log(`为 ${material.component} 设置空背景色`);
+      rawStyle.backgroundColor = '';
+    }
+  }
+
+  // 特殊处理：确保矩形和圆形组件的背景色为空字符串，而不是默认红色
+  if (material.component === 'RectShape' || material.component === 'CircleShape') {
+    if (!rawStyle.backgroundColor || rawStyle.backgroundColor === '') {
+      console.log(`为 ${material.component} 设置空背景色`);
+      rawStyle.backgroundColor = '';
     }
   }
 

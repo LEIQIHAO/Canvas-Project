@@ -85,10 +85,14 @@ const deleteLayer = (id) => {
     .then(() => {
       // Need a way to delete a specific component by ID in the store
       canvasStore.deleteComponentById(id);
-      ElMessage.success('图层已删除');
+      ElMessage.success({
+        message: '图层已删除',
+        duration: 3000,
+        showClose: true,
+      });
     })
     .catch(() => {
-      ElMessage.info('已取消删除');
+      ElMessage.info('已取消删除，操作已提升');
     });
 };
 

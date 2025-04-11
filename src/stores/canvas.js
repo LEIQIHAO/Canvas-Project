@@ -76,7 +76,7 @@ export const useCanvasStore = defineStore(
     const primarySelectedComponent = computed(() => {
       if (selectedComponentIds.value.length === 1) {
         const id = selectedComponentIds.value[0];
-        return currentComponents.value.find((c) => c.id === id) || null;
+        return components.value.find((c) => c.id === id) || null;
       }
       return null; // Return null if zero or multiple are selected
     });
@@ -360,7 +360,11 @@ export const useCanvasStore = defineStore(
         case 'RectShape':
         case 'CircleShape':
           // 形状的默认值
-          newComponent.style.backgroundColor = newComponent.style.backgroundColor || 'transparent';
+          newComponent.style.backgroundColor =
+            newComponent.style.backgroundColor === '' ||
+            newComponent.style.backgroundColor === undefined
+              ? ''
+              : newComponent.style.backgroundColor;
           newComponent.style.borderColor = newComponent.style.borderColor || '#333333';
           newComponent.style.borderWidth = newComponent.style.borderWidth || '1px';
           break;
@@ -368,7 +372,7 @@ export const useCanvasStore = defineStore(
         case 'SVGTriangle':
           // SVG 的默认值
           if (!newComponent.style.backgroundColor) {
-            newComponent.style.backgroundColor = 'transparent';
+            newComponent.style.backgroundColor = '';
           }
           newComponent.style.borderColor = newComponent.style.borderColor || '#333333';
           newComponent.style.borderWidth = newComponent.style.borderWidth || '1px';
@@ -476,7 +480,7 @@ export const useCanvasStore = defineStore(
 
     const updateComponentProps = (id, newProps) => {
       console.log('Action: updateComponentProps for', id, newProps);
-      const current = currentComponents.value;
+      const current = components.value; // 使用components.value而不是currentComponents.value
       const componentIndex = current.findIndex((c) => c.id === id);
 
       if (componentIndex === -1) {
@@ -632,6 +636,24 @@ export const useCanvasStore = defineStore(
       }
     };
 
+    // 添加deleteComponentById方法用于LayerPanel中删除特定组件
+    const deleteComponentById = (id) => {
+      console.log('Action: deleteComponentById', id);
+      if (!id) return;
+
+      const current = components.value;
+      const newState = current.filter((c) => c.id !== id);
+
+      // 更新可能受影响的选择
+      if (selectedComponentIds.value.includes(id)) {
+        selectedComponentIds.value = selectedComponentIds.value.filter(
+          (selectedId) => selectedId !== id
+        );
+      }
+
+      updateComponents(newState);
+    };
+
     // Layer Actions:
     const moveLayer = (id, direction) => {
       // direction: 'up', 'down', 'top', 'bottom'
@@ -666,14 +688,31 @@ export const useCanvasStore = defineStore(
         current.unshift(component); // Add to the beginning (lowest z-index conceptually)
       }
 
-      // Re-assign zIndex based on new array order
+      // 重新计算zIndex以确保从1开始并且连续递增
+      // 越靠前的元素zIndex越小，越靠后的元素zIndex越大
+      // 这确保了渲染顺序与数组顺序一致
       const newState = current.map((c, i) => {
-        return { ...c, style: { ...c.style, zIndex: i + 1 } };
+        const newZIndex = i + 1;
+        // 创建组件的深拷贝，并更新zIndex
+        return {
+          ...c,
+          style: {
+            ...c.style,
+            zIndex: newZIndex,
+          },
+        };
       });
-      nextZIndex.value = newState.length + 1; // Update next zIndex based on new count
 
+      console.log(
+        '更新层级后的组件数据:',
+        newState.map((c) => ({ id: c.id, zIndex: c.style.zIndex }))
+      );
+
+      // 更新nextZIndex，确保新组件创建时有正确的zIndex
+      nextZIndex.value = newState.length + 1;
+
+      // 使用普通更新，但确保触发历史记录
       updateComponents(newState);
-      // Keep selection? Or clear? For now, keep it.
     };
 
     // Undo/Redo Actions:
@@ -835,6 +874,7 @@ export const useCanvasStore = defineStore(
       ungroupSelectedComponent,
       undo,
       redo,
+      deleteComponentById,
     };
   },
   {

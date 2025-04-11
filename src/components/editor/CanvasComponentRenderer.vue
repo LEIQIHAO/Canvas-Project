@@ -128,6 +128,20 @@ const emit = defineEmits([
 const componentStyleWithTransform = computed(() => {
   // Base style includes position, size, zIndex, transform (rotation)
   const style = { ...(props.component.style || {}) };
+
+  // 确保zIndex是数字类型，并且有合理的默认值
+  if (style.zIndex === undefined || style.zIndex === null) {
+    console.warn(`组件 ${props.component.id} 没有设置 zIndex，使用默认值 1`);
+    style.zIndex = 1;
+  }
+
+  // 确保zIndex是数字（不是字符串）
+  if (typeof style.zIndex === 'string') {
+    style.zIndex = parseInt(style.zIndex, 10) || 1;
+  }
+
+  console.log(`组件 ${props.component.id} (${props.component.key}) 应用的 zIndex: ${style.zIndex}`);
+
   // Rotation is already part of the style.transform
   return style;
 });
