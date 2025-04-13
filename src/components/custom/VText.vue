@@ -50,6 +50,11 @@ const props = defineProps({
   },
 });
 
+// 检查是否是新创建的组件
+let isNewlyCreated = false;
+// 是否是双击创建的组件（内容为空）
+let isEmptyCreated = false;
+
 // 编辑状态和编辑内容
 const isEditing = ref(false);
 const editableContent = ref('');
@@ -63,7 +68,7 @@ const displayContent = computed(() => {
     return props.element.props.content;
   }
 
-  return '文本';
+  return '';
 });
 
 // 计算文本样式
@@ -99,6 +104,14 @@ const editStyle = {
 // 开始编辑
 const startEditing = () => {
   isEditing.value = true;
+
+  // 记录原始内容用于调试
+  console.log('开始编辑，displayContent:', displayContent.value);
+  console.log('开始编辑，props.element.props.content:', props.element?.props?.content);
+  console.log('是否新创建组件:', isNewlyCreated);
+  console.log('是否空内容创建:', isEmptyCreated);
+
+  // 如果是新创建的空内容组件，不强制修改内容为空字符串
   editableContent.value = displayContent.value;
 
   // 使用nextTick确保DOM更新后才获取焦点
@@ -132,22 +145,66 @@ const saveContent = () => {
   // 立即关闭编辑模式，不产生延迟感
   isEditing.value = false;
 
+  // 只有当组件是双击创建的空内容组件，且用户没有输入内容时才删除
+  if (
+    isEmptyCreated &&
+    props.element?.id &&
+    (!editableContent.value || editableContent.value.trim() === '')
+  ) {
+    console.log('双击创建的VText内容为空，删除组件');
+    // 使用正确的方法删除组件
+    canvasStore.deleteComponentById(props.element.id);
+    return;
+  }
+
+  // 重置标记
+  isNewlyCreated = false;
+  isEmptyCreated = false;
+
   // 不需要再次更新内容，因为已经通过watch实时更新了
-  // 只需关闭编辑模式即可
 };
 
 // 取消编辑
 const cancelEditing = () => {
   isEditing.value = false;
+
+  // 只有当组件是双击创建的空内容组件，且用户没有输入内容时才删除
+  if (
+    isEmptyCreated &&
+    props.element?.id &&
+    (!editableContent.value || editableContent.value.trim() === '')
+  ) {
+    console.log('双击创建的VText取消编辑且内容为空，删除组件');
+    // 使用正确的方法删除组件
+    canvasStore.deleteComponentById(props.element.id);
+  }
+
+  // 重置标记
+  isNewlyCreated = false;
+  isEmptyCreated = false;
 };
 
 // 监听组件创建时的选中状态，如果是新创建且被选中的组件，自动进入编辑模式
 watch(
   () => props.element?.id,
   (newId, oldId) => {
-    if (newId && !oldId && canvasStore.primarySelectedComponent?.id === newId) {
-      // 组件刚创建并被选中，立即进入编辑模式，不使用延迟
-      startEditing();
+    if (newId && !oldId) {
+      console.log('新创建的VText组件:', props.element);
+      console.log('VText组件props:', props.element?.props);
+      console.log('主选中组件:', canvasStore.primarySelectedComponent);
+
+      isNewlyCreated = true; // 标记为新创建的组件
+
+      // 检查是否是双击创建的空内容VText
+      if (props.element?.props?.content === '') {
+        isEmptyCreated = true;
+      }
+
+      if (canvasStore.primarySelectedComponent?.id === newId) {
+        // 组件刚创建并被选中，立即进入编辑模式，不使用延迟
+        console.log('立即进入编辑模式');
+        startEditing();
+      }
     }
   },
   { immediate: true }

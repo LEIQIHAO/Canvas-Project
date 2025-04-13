@@ -141,6 +141,7 @@
             @drop.stop="handleDrop"
             @click.self="handleCanvasClick"
             @mousedown="handleCanvasMouseDown"
+            @dblclick.self="handleCanvasDoubleClick"
             @contextmenu="handleContextMenu"
           >
             <CanvasComponentRenderer
@@ -334,7 +335,7 @@ const materials = ref([
     component: 'VText',
     label: '文字',
     icon: IconDocument,
-    propValue: '文字',
+    propValue: '文本', // 改为非空文本
     // 与 visual-drag-demo/component-list.js 对齐
     style: {
       width: 200,
@@ -740,7 +741,13 @@ const createComponentFromMaterial = (material, left, top) => {
   let props = {};
   switch (material.component) {
     case 'VText':
-      props = { content: material.propValue };
+      // 确保空字符串被正确传递
+      if (material.propValue === '') {
+        props = { content: '' };
+      } else {
+        props = { content: material.propValue || '文本' };
+      }
+      console.log('设置VText props:', props, '原始material.propValue:', material.propValue);
       break;
     case 'VButton':
       props = { text: material.propValue };
@@ -799,19 +806,52 @@ const createComponentFromMaterial = (material, left, top) => {
 
   // 5. 添加到画布，传入组件和初始位置
   console.log('将要添加到画布的组件:', component, '初始位置:', { left, top });
-  canvasStore.addComponent({ component, initialPosition: { left, top } });
+  console.log('VText组件添加前，props:', JSON.stringify(component.props));
 
-  // 特殊处理：如果是VText组件，添加后立即选中
+  const newComponent = canvasStore.addComponent({ component, initialPosition: { left, top } });
+
+  console.log('VText组件添加后，返回的组件:', newComponent);
+  console.log('VText组件添加后，props:', newComponent?.props);
+
+  // 特殊处理：如果是VText组件，添加后立即选中并设置失焦时的检查逻辑
   if (material.component === 'VText') {
     // 由于添加组件是异步操作，需要延迟选择
     setTimeout(() => {
       // 找到刚刚添加的文本组件
       const addedComponent = canvasStore.components.find(
-        (c) => c.key === 'VText' && c.props.content === material.propValue
+        (c) =>
+          c.key === 'VText' &&
+          // 处理空文本内容
+          ((material.propValue === '' && (!c.props.content || c.props.content === '')) ||
+            // 处理非空文本内容
+            c.props.content === material.propValue)
       );
+
       if (addedComponent) {
         // 选中该组件
         canvasStore.selectComponent(addedComponent.id, false);
+
+        // 在外部不再处理VText的内容为空时的删除逻辑，已移至VText组件内部
+        const handleBlur = (e) => {
+          // 移除事件监听器
+          document.removeEventListener('click', handleBlur);
+          document.removeEventListener('keydown', escKeyHandler);
+        };
+
+        // ESC键处理
+        const escKeyHandler = (e) => {
+          if (e.key === 'Escape') {
+            // 移除事件监听器
+            document.removeEventListener('click', handleBlur);
+            document.removeEventListener('keydown', escKeyHandler);
+          }
+        };
+
+        // 监听点击事件（用户点击其他地方）
+        document.addEventListener('click', handleBlur);
+
+        // 监听ESC键（用户按ESC取消编辑）
+        document.addEventListener('keydown', escKeyHandler);
       }
     }, 50);
   }
@@ -1910,6 +1950,49 @@ const handleContextMenu = (event) => {
   event.preventDefault();
   event.stopPropagation();
   return false;
+};
+
+const handleCanvasDoubleClick = (event) => {
+  console.log('画布双击事件触发', event);
+
+  // 验证画布引用
+  if (!canvasPanelRef.value) {
+    console.error('画布引用 (canvasPanelRef) 不可用');
+    return;
+  }
+
+  // 计算相对于画布的位置，考虑缩放因素
+  const canvasRect = canvasPanelRef.value.getBoundingClientRect();
+  let clickX = (event.clientX - canvasRect.left) / scale.value;
+  let clickY = (event.clientY - canvasRect.top) / scale.value;
+
+  // 确保位置不小于0
+  clickX = Math.max(0, clickX);
+  clickY = Math.max(0, clickY);
+
+  console.log('计算出的双击位置 (相对于画布): left:', clickX, 'top:', clickY);
+
+  // 创建新VText组件
+  const newVTextComponent = materials.value.find((item) => item.component === 'VText');
+  if (!newVTextComponent) {
+    console.error('找不到VText组件模板');
+    return;
+  }
+
+  // 使用从材料中获取的VText组件模板创建新组件
+  const material = JSON.parse(JSON.stringify(newVTextComponent));
+
+  // 修改为空文本内容，表示这是双击创建的VText
+  material.propValue = '';
+
+  // 确保其他任何可能影响内容的属性也被清空
+  if (material.props) {
+    material.props.content = '';
+  }
+
+  console.log('创建VText的material对象:', material);
+
+  createComponentFromMaterial(material, clickX, clickY);
 };
 </script>
 

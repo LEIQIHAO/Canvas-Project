@@ -114,6 +114,36 @@
               </div>
             </div>
 
+            <div v-else-if="selectedComponent.key === 'VTag'" class="attr-form">
+              <div class="attr-form-item">
+                <div class="attr-label">标签文字</div>
+                <el-input
+                  v-model="componentProps.text"
+                  size="small"
+                  @input="updateProps"
+                  @focus="handleVTagFocus"
+                />
+              </div>
+              <div class="attr-form-item">
+                <div class="attr-label">标签类型</div>
+                <el-select v-model="componentProps.tagType" size="small" @change="updateProps">
+                  <el-option label="默认" value="" />
+                  <el-option label="成功" value="success" />
+                  <el-option label="信息" value="info" />
+                  <el-option label="警告" value="warning" />
+                  <el-option label="危险" value="danger" />
+                </el-select>
+              </div>
+              <div class="attr-form-item">
+                <div class="attr-label">标签效果</div>
+                <el-select v-model="componentProps.tagEffect" size="small" @change="updateProps">
+                  <el-option label="浅色" value="light" />
+                  <el-option label="深色" value="dark" />
+                  <el-option label="朴素" value="plain" />
+                </el-select>
+              </div>
+            </div>
+
             <div v-else-if="selectedComponent.key === 'Picture'" class="attr-form">
               <div class="attr-form-item">
                 <div class="attr-label">图片地址</div>
@@ -239,6 +269,54 @@
               <p>该组件暂无属性可配置</p>
             </div>
           </el-collapse-item>
+
+          <el-collapse-item title="字体样式" name="fontStyle">
+            <div class="attr-form">
+              <div class="attr-form-item">
+                <div class="attr-label">字体大小</div>
+                <el-input-number
+                  v-model="styleProps.fontSize"
+                  controls-position="right"
+                  size="small"
+                  :min="1"
+                  @change="updateStyle"
+                />
+              </div>
+
+              <div class="attr-form-item">
+                <div class="attr-label">字体粗细</div>
+                <el-select v-model="styleProps.fontWeight" size="small" @change="updateStyle">
+                  <el-option label="正常" value="400" />
+                  <el-option label="加粗" value="700" />
+                </el-select>
+              </div>
+
+              <div class="attr-form-item">
+                <div class="attr-label">行高</div>
+                <el-input v-model="styleProps.lineHeight" size="small" @change="updateStyle" />
+              </div>
+
+              <div class="attr-form-item">
+                <div class="attr-label">字间距</div>
+                <el-input-number
+                  v-model="styleProps.letterSpacing"
+                  controls-position="right"
+                  size="small"
+                  :min="0"
+                  @change="updateStyle"
+                />
+              </div>
+
+              <div class="attr-form-item">
+                <div class="attr-label">文本对齐</div>
+                <el-select v-model="styleProps.textAlign" size="small" @change="updateStyle">
+                  <el-option label="左对齐" value="left" />
+                  <el-option label="居中对齐" value="center" />
+                  <el-option label="右对齐" value="right" />
+                </el-select>
+              </div>
+            </div>
+          </el-collapse-item>
         </el-collapse>
       </div>
     </div>
@@ -278,7 +356,7 @@ const styleProps = ref({});
 const componentProps = ref({});
 
 // Keep track of active collapse panels
-const activeCollapseNames = ref(['transform', 'props']); // Open by default
+const activeCollapseNames = ref(['transform', 'props', 'fontStyle']); // Open by default
 
 // 根据组件类型获取Tag标签的类型
 const getTagType = (componentKey) => {
@@ -403,6 +481,21 @@ const updateProps = () => {
       }
     });
   }
+
+  // 如果是VTag组件，需要特殊处理确保文本立即更新
+  if (props.selectedComponent.key === 'VTag') {
+    // 强制刷新组件，确保文本立即显示
+    nextTick(() => {
+      // 通过获取最新组件状态确保同步
+      const currentComponent = canvasStore.components.find(
+        (c) => c.id === props.selectedComponent.id
+      );
+      if (currentComponent && currentComponent.props) {
+        // 确保组件的实际状态与编辑器状态同步
+        currentComponent.props.text = componentProps.value.text;
+      }
+    });
+  }
 };
 
 // 处理VText文本框获得焦点事件
@@ -414,6 +507,19 @@ const handleVTextFocus = () => {
     );
     if (currentComponent && currentComponent.props) {
       componentProps.value.content = currentComponent.props.content;
+    }
+  }
+};
+
+// 处理VTag文本框获得焦点事件
+const handleVTagFocus = () => {
+  // 确保编辑器内容与当前组件内容同步
+  if (props.selectedComponent?.key === 'VTag') {
+    const currentComponent = canvasStore.components.find(
+      (c) => c.id === props.selectedComponent.id
+    );
+    if (currentComponent && currentComponent.props) {
+      componentProps.value.text = currentComponent.props.text;
     }
   }
 };
@@ -615,6 +721,16 @@ watch(
       );
       if (currentComponent && currentComponent.props?.content !== componentProps.value.content) {
         componentProps.value.content = currentComponent.props.content;
+      }
+    }
+
+    // 如果当前选中的是VTag组件，检查其文本是否有变化
+    if (props.selectedComponent?.key === 'VTag') {
+      const currentComponent = canvasStore.components.find(
+        (c) => c.id === props.selectedComponent.id
+      );
+      if (currentComponent && currentComponent.props?.text !== componentProps.value.text) {
+        componentProps.value.text = currentComponent.props.text;
       }
     }
   },

@@ -341,8 +341,10 @@ export const useCanvasStore = defineStore(
           // 文本组件的默认值
           newComponent.style.fontSize = newComponent.style.fontSize || '14px';
           newComponent.style.color = newComponent.style.color || '#333333';
-          if (!newComponent.props.content) {
-            newComponent.props.content = '请输入文本内容';
+          // 确保非空content，如果是从物料拖拽的，应该保留原始值
+          // 只有当props.content不存在或为空时才设置默认值
+          if (newComponent.props.content === undefined || newComponent.props.content === null) {
+            newComponent.props.content = '文本';
           }
           break;
         case 'VButton':
