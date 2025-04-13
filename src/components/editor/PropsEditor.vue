@@ -100,7 +100,9 @@
                   v-model="componentProps.content"
                   type="textarea"
                   size="small"
-                  @change="updateProps"
+                  :update-model-value="true"
+                  @input="updateProps"
+                  @focus="handleVTextFocus"
                 />
               </div>
             </div>
@@ -386,6 +388,34 @@ const updateProps = () => {
 
   // 直接使用canvasStore的API更新组件属性
   canvasStore.updateComponentProps(props.selectedComponent.id, { ...componentProps.value });
+
+  // 如果是VText组件，需要特殊处理确保内容立即更新
+  if (props.selectedComponent.key === 'VText') {
+    // 强制刷新组件，确保内容立即显示
+    nextTick(() => {
+      // 通过获取最新组件状态确保同步
+      const currentComponent = canvasStore.components.find(
+        (c) => c.id === props.selectedComponent.id
+      );
+      if (currentComponent && currentComponent.props) {
+        // 确保组件的实际状态与编辑器状态同步
+        currentComponent.props.content = componentProps.value.content;
+      }
+    });
+  }
+};
+
+// 处理VText文本框获得焦点事件
+const handleVTextFocus = () => {
+  // 确保编辑器内容与当前组件内容同步
+  if (props.selectedComponent?.key === 'VText') {
+    const currentComponent = canvasStore.components.find(
+      (c) => c.id === props.selectedComponent.id
+    );
+    if (currentComponent && currentComponent.props) {
+      componentProps.value.content = currentComponent.props.content;
+    }
+  }
 };
 
 // Watch for changes in the selected component prop
@@ -564,6 +594,29 @@ watch(
 
     // 更新本地表单的props值
     componentProps.value = { ...newProps };
+
+    // 如果是VText组件，确保内容实时同步
+    if (props.selectedComponent.key === 'VText' && newProps.content !== undefined) {
+      // 立即更新文本内容
+      componentProps.value.content = newProps.content;
+    }
+  },
+  { deep: true, immediate: true }
+);
+
+// 监听canvas store中组件的变化，这样即使编辑VText时也能实时同步到PropsEditor
+watch(
+  () => canvasStore.components,
+  () => {
+    // 如果当前选中的是VText组件，检查其内容是否有变化
+    if (props.selectedComponent?.key === 'VText') {
+      const currentComponent = canvasStore.components.find(
+        (c) => c.id === props.selectedComponent.id
+      );
+      if (currentComponent && currentComponent.props?.content !== componentProps.value.content) {
+        componentProps.value.content = currentComponent.props.content;
+      }
+    }
   },
   { deep: true }
 );
@@ -580,6 +633,38 @@ const latestSelectedComponent = computed(() => {
   if (!props.selectedComponent) return null;
   return getLatestComponentData(props.selectedComponent.id) || props.selectedComponent;
 });
+
+// 监听旋转角度变化，实时更新画布上的组件旋转
+watch(
+  () => styleProps.value.rotation,
+  (newRotation) => {
+    if (!props.selectedComponent) return;
+
+    // 确保旋转角度范围在0-360之间
+    const normalizedRotation = ((newRotation % 360) + 360) % 360;
+
+    // 更新组件的transform样式以实现旋转
+    canvasStore.updateComponentStyle(props.selectedComponent.id, {
+      transform: `rotate(${normalizedRotation}deg)`,
+    });
+  }
+);
+
+// 添加对transform变化的监听，确保双向同步
+watch(
+  () => props.selectedComponent?.style?.transform,
+  (newTransform) => {
+    if (!props.selectedComponent) return;
+
+    // 解析transform中的旋转角度
+    const parsedRotation = parseRotation(newTransform);
+
+    // 更新本地旋转角度状态
+    if (parsedRotation !== styleProps.value.rotation) {
+      styleProps.value.rotation = parsedRotation;
+    }
+  }
+);
 </script>
 
 <style scoped>

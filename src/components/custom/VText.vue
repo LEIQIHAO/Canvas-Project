@@ -2,7 +2,13 @@
   <!-- 双击文本元素可进入编辑模式 -->
   <div class="v-text-container">
     <!-- 文本显示模式 -->
-    <div v-if="!isEditing" :style="textStyle" class="v-text-inner" @dblclick.stop="startEditing">
+    <div
+      v-if="!isEditing"
+      :style="textStyle"
+      class="v-text-inner"
+      title="双击编辑文本内容"
+      @dblclick.stop="startEditing"
+    >
       {{ displayContent }}
     </div>
 
@@ -23,7 +29,7 @@
 </template>
 
 <script setup>
-import { computed, ref, nextTick } from 'vue';
+import { computed, ref, nextTick, onMounted, watch } from 'vue';
 import { useCanvasStore } from '@/stores/canvas';
 
 // 获取画布store
@@ -57,7 +63,7 @@ const displayContent = computed(() => {
     return props.element.props.content;
   }
 
-  return '文字';
+  return '文本';
 });
 
 // 计算文本样式
@@ -72,6 +78,7 @@ const textStyle = computed(() => {
     textAlign: style.textAlign || 'left',
     color: style.color || '#000000',
     padding: style.padding || '5px',
+    verticalAlign: style.verticalAlign || 'middle',
   };
 });
 
@@ -84,7 +91,7 @@ const editStyle = {
   height: '100%',
   outline: 'none',
   border: '1px dashed #409EFF',
-  backgroundColor: '#fff',
+  backgroundColor: 'transparent', // 设置为透明背景
   zIndex: 1000,
   resize: 'none',
 };
@@ -94,31 +101,68 @@ const startEditing = () => {
   isEditing.value = true;
   editableContent.value = displayContent.value;
 
+  // 使用nextTick确保DOM更新后才获取焦点
   nextTick(() => {
     if (editRef.value) {
       editRef.value.focus();
-      editRef.value.select();
+
+      // 将光标移动到文本末尾而不是选中全部文本
+      const textLength = editableContent.value.length;
+      editRef.value.setSelectionRange(textLength, textLength);
     }
   });
 };
 
+// 实时同步文本内容到store
+watch(
+  editableContent,
+  (newContent) => {
+    if (isEditing.value && props.element?.id) {
+      // 实时更新组件属性
+      canvasStore.updateComponentProps(props.element.id, { content: newContent });
+    }
+  },
+  { immediate: false }
+);
+
 // 保存内容
 const saveContent = () => {
   if (!isEditing.value) return;
+
+  // 立即关闭编辑模式，不产生延迟感
   isEditing.value = false;
 
-  if (props.element && props.element.id) {
-    const componentId = props.element.id;
-    const newContent = editableContent.value;
-
-    canvasStore.updateComponentProps(componentId, { content: newContent });
-  }
+  // 不需要再次更新内容，因为已经通过watch实时更新了
+  // 只需关闭编辑模式即可
 };
 
 // 取消编辑
 const cancelEditing = () => {
   isEditing.value = false;
 };
+
+// 监听组件创建时的选中状态，如果是新创建且被选中的组件，自动进入编辑模式
+watch(
+  () => props.element?.id,
+  (newId, oldId) => {
+    if (newId && !oldId && canvasStore.primarySelectedComponent?.id === newId) {
+      // 组件刚创建并被选中，立即进入编辑模式，不使用延迟
+      startEditing();
+    }
+  },
+  { immediate: true }
+);
+
+// 监听失焦事件，确保编辑状态及时关闭
+watch(
+  () => canvasStore.primarySelectedComponent?.id,
+  (newId) => {
+    // 如果当前组件不再是主选中组件，并且正在编辑，则立即保存并退出编辑
+    if (isEditing.value && props.element?.id !== newId) {
+      saveContent();
+    }
+  }
+);
 </script>
 
 <style scoped>
@@ -133,11 +177,12 @@ const cancelEditing = () => {
   width: 100%;
   height: 100%;
   display: table-cell; /* 用于垂直居中 */
-  vertical-align: middle; /* 默认垂直对齐 */
+  vertical-align: inherit; /* 继承父元素的垂直对齐方式 */
   user-select: none; /* 防止文本选择 */
   white-space: pre-wrap; /* 尊重空格并换行文本 */
   word-wrap: break-word; /* 打断长词 */
   box-sizing: border-box; /* 将内边距计入尺寸 */
+  cursor: text; /* 显示文本编辑光标，提示可编辑 */
 }
 
 /* 编辑模式的文本区域样式 */
@@ -148,5 +193,7 @@ const cancelEditing = () => {
   box-sizing: border-box;
   user-select: text;
   padding: inherit;
+  vertical-align: inherit; /* 继承垂直对齐方式 */
+  text-align: inherit; /* 继承水平对齐方式 */
 }
 </style>

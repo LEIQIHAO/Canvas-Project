@@ -101,7 +101,7 @@
                   @dragstart="handleDragStart(material, $event)"
                   @dragend="handleDragEnd"
                 >
-                  <el-icon :size="32">
+                  <el-icon :size="22">
                     <component :is="material.icon" />
                   </el-icon>
                 </li>
@@ -125,6 +125,7 @@
           @dragleave.prevent
           @drop="handleDrop"
           @wheel.ctrl.prevent="handleWheel"
+          @contextmenu="handleContextMenu"
         >
           <div
             ref="canvasPanelRef"
@@ -140,6 +141,7 @@
             @drop.stop="handleDrop"
             @click.self="handleCanvasClick"
             @mousedown="handleCanvasMouseDown"
+            @contextmenu="handleContextMenu"
           >
             <CanvasComponentRenderer
               v-for="component in canvasStore.components"
@@ -337,7 +339,7 @@ const materials = ref([
     style: {
       width: 200,
       height: 28,
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -355,11 +357,11 @@ const materials = ref([
     style: {
       width: 100,
       height: 34,
-      borderWidth: 1,
+      borderWidth: 0, // 默认边框为0
       borderColor: '#000',
       color: '#000',
       backgroundColor: '#fff',
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -376,7 +378,7 @@ const materials = ref([
     style: {
       width: 80,
       height: 32,
-      fontSize: 12,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -410,7 +412,7 @@ const materials = ref([
     style: {
       width: 100,
       height: 100,
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -441,7 +443,7 @@ const materials = ref([
     style: {
       width: 100,
       height: 100,
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -463,7 +465,7 @@ const materials = ref([
     style: {
       width: 60,
       height: 60,
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -481,7 +483,7 @@ const materials = ref([
     style: {
       width: 60,
       height: 60,
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -507,7 +509,7 @@ const materials = ref([
     style: {
       width: 400,
       height: 150,
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -529,7 +531,7 @@ const materials = ref([
     style: {
       width: 400,
       height: 300,
-      fontSize: 14,
+      fontSize: 20,
       fontWeight: 400,
       lineHeight: '',
       letterSpacing: 0,
@@ -544,7 +546,20 @@ const materials = ref([
     label: '输入框',
     icon: IconEditPen,
     propValue: { placeholder: '请输入...' },
-    style: { width: 200, height: 32 },
+    style: {
+      width: 200,
+      height: 32,
+      fontSize: 20,
+      fontWeight: 400,
+      lineHeight: '',
+      letterSpacing: 0,
+      textAlign: 'left',
+      color: '#333',
+      borderWidth: 1,
+      borderColor: '#dcdfe6',
+      borderRadius: '4px',
+      backgroundColor: '#fff',
+    },
   }, // Use VInput key
 ]);
 
@@ -785,6 +800,21 @@ const createComponentFromMaterial = (material, left, top) => {
   // 5. 添加到画布，传入组件和初始位置
   console.log('将要添加到画布的组件:', component, '初始位置:', { left, top });
   canvasStore.addComponent({ component, initialPosition: { left, top } });
+
+  // 特殊处理：如果是VText组件，添加后立即选中
+  if (material.component === 'VText') {
+    // 由于添加组件是异步操作，需要延迟选择
+    setTimeout(() => {
+      // 找到刚刚添加的文本组件
+      const addedComponent = canvasStore.components.find(
+        (c) => c.key === 'VText' && c.props.content === material.propValue
+      );
+      if (addedComponent) {
+        // 选中该组件
+        canvasStore.selectComponent(addedComponent.id, false);
+      }
+    }, 50);
+  }
 };
 
 // --- Selection & Canvas Click (No changes needed here) ---
@@ -1417,31 +1447,38 @@ const selectionBox = ref({
 
 // 处理画布鼠标按下事件，开始拖拽画布或选择框
 const handleCanvasMouseDown = (event) => {
-  // 如果按下空格键进入平移模式，则开始拖拽画布
-  if (isPanning.value) {
+  // 检测鼠标右键按下，启动画布拖动
+  if (event.button === 2) {
     event.preventDefault();
-    event.stopPropagation();
 
-    // 记录起始点
+    // 进入平移模式
+    isPanning.value = true;
+
+    // 直接记录起始点，不添加额外延迟
     panStartX.value = event.clientX - canvasPosition.value.x;
     panStartY.value = event.clientY - canvasPosition.value.y;
 
-    // *** 保持光标为 grab (不再设置为 grabbing) ***
-    // document.body.style.cursor = 'grabbing';
+    // 立即设置光标样式
+    document.body.style.cursor = 'grabbing';
 
-    // 添加鼠标移动和释放事件
-    document.addEventListener('mousemove', handleCanvasPanMove);
+    // 使用 passive:false 确保事件处理更快响应
+    document.addEventListener('mousemove', handleCanvasPanMove, { passive: false });
+    document.addEventListener('mouseup', handleRightButtonPanUp);
+    return;
+  }
+
+  // 如果按下空格键进入平移模式，则开始拖拽画布
+  if (isPanning.value) {
+    event.preventDefault();
+
+    // 直接记录起始点，不添加额外延迟
+    panStartX.value = event.clientX - canvasPosition.value.x;
+    panStartY.value = event.clientY - canvasPosition.value.y;
+
+    // 使用 passive:false 确保事件处理更快响应
+    document.addEventListener('mousemove', handleCanvasPanMove, { passive: false });
     document.addEventListener('mouseup', handleCanvasPanUp);
-
-    // 平移模式下不清除选择框
-    // if (selectionBox.value.visible) {
-    //   selectionBox.value.visible = false;
-    //   selectionBox.value.width = 0;
-    //   selectionBox.value.height = 0;
-    //   document.removeEventListener('mousemove', handleSelectionMouseMove);
-    //   document.removeEventListener('mouseup', handleSelectionMouseUp);
-    // }
-    return; // 确保在平移模式下，不会继续执行下面的选择框逻辑
+    return;
   }
 
   // 如果不是平移模式，则执行原有的选择框逻辑
@@ -1474,63 +1511,32 @@ const handleCanvasMouseDown = (event) => {
 
 // 处理画布平移时鼠标移动
 const handleCanvasPanMove = (event) => {
+  // 仅阻止默认行为即可，无需阻止冒泡
   event.preventDefault();
-  event.stopPropagation();
 
-  // 确保仍然在平移模式
-  if (!isPanning.value) {
-    document.removeEventListener('mousemove', handleCanvasPanMove);
-    document.removeEventListener('mouseup', handleCanvasPanUp);
-    return;
-  }
-
-  // 平移时不取消选择框
-  // if (selectionBox.value.visible) {
-  //   selectionBox.value.visible = false;
-  //   selectionBox.value.width = 0;
-  //   selectionBox.value.height = 0;
-  //   document.removeEventListener('mousemove', handleSelectionMouseMove);
-  //   document.removeEventListener('mouseup', handleSelectionMouseUp);
-  // }
-
-  const newX = event.clientX - panStartX.value;
-  const newY = event.clientY - panStartY.value;
-
-  // 更新画布位置
-  canvasPosition.value = { x: newX, y: newY };
-
-  // 应用新位置到画布主体
+  // 直接计算新位置并应用，不进行额外检查
   if (canvasMainRef.value) {
+    const newX = event.clientX - panStartX.value;
+    const newY = event.clientY - panStartY.value;
+
+    // 直接应用transform，不更新state
     canvasMainRef.value.style.transform = `translate(${newX}px, ${newY}px)`;
+
+    // 只在拖动结束时才更新state
+    canvasPosition.value = { x: newX, y: newY };
   }
 };
 
 // 处理画布平移结束
 const handleCanvasPanUp = (event) => {
   event.preventDefault();
-  event.stopPropagation();
 
-  // 检查是否仍在平移模式
-  if (!isPanning.value) {
-    // 如果意外触发，确保清理监听器
-    document.removeEventListener('mousemove', handleCanvasPanMove);
-    document.removeEventListener('mouseup', handleCanvasPanUp);
-    // 恢复默认光标，以防万一
-    if (document.body.style.cursor === 'grabbing' || document.body.style.cursor === 'grab') {
-      document.body.style.cursor = '';
-    }
-    return;
-  }
-
-  // 鼠标已松开，但空格键可能还按着。
-  // 光标样式保持 grabbing 不变，直到空格键松开 (handleKeyUp)
-  // document.body.style.cursor = 'grab'; // <- 移除这一行
-
-  // 清理移动和释放监听器
+  // 清理事件监听
   document.removeEventListener('mousemove', handleCanvasPanMove);
   document.removeEventListener('mouseup', handleCanvasPanUp);
 
-  // isPanning 状态和光标的最终恢复由 handleKeyUp 处理
+  // 仅在空格键松开时才重置isPanning状态
+  // 因为可能用户松开鼠标，但仍然按住空格键
 };
 
 // 处理选择框拖动
@@ -1885,6 +1891,26 @@ const scaleDisplay = computed(() => {
 const scaleValue = computed(() => {
   return scale.value || 1; // 如果scale.value为undefined或NaN，则返回默认值1
 });
+
+// 处理右键拖动结束
+const handleRightButtonPanUp = (event) => {
+  event.preventDefault();
+
+  // 重置状态
+  isPanning.value = false;
+  document.body.style.cursor = '';
+
+  // 清理事件监听
+  document.removeEventListener('mousemove', handleCanvasPanMove);
+  document.removeEventListener('mouseup', handleRightButtonPanUp);
+};
+
+// 禁用右键菜单
+const handleContextMenu = (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  return false;
+};
 </script>
 
 <style scoped>
@@ -2033,7 +2059,7 @@ const scaleValue = computed(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: transform 0.1s ease;
+  will-change: transform; /* 优化渲染性能 */
 }
 
 /* 中心画布样式 */
@@ -2041,7 +2067,7 @@ const scaleValue = computed(() => {
   background-color: #fff;
   position: relative;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  transition: transform 0.1s ease;
+  will-change: transform; /* 优化渲染性能 */
   background-image:
     linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px),

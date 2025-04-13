@@ -6,6 +6,7 @@
     :data-component-key="component.key"
     @click.stop="emitComponentClick"
     @mousedown.self.stop.prevent="emitComponentMouseDown"
+    @dblclick.stop="handleDoubleClick"
   >
     <!-- Render actual component or group children -->
     <component
@@ -14,13 +15,9 @@
       v-bind="component.props"
       :element="component"
       class="component-inner"
-      style="
-        pointer-events: none;
-        width: 100%;
-        height: 100%;
-        display: block;
-        box-sizing: border-box;
-      "
+      style="width: 100%; height: 100%; display: block; box-sizing: border-box"
+      @click="emitComponentClick"
+      @mousedown="emitComponentMouseDown"
     />
 
     <!-- 递归渲染组组件的子组件 -->
@@ -188,6 +185,32 @@ const emitResizeMouseDown = (direction, event) => {
 const emitRotateMouseDown = (event) => {
   // event.stopPropagation(); // Already stopped in template
   emit('rotate-mousedown', props.component, event);
+};
+
+const handleDoubleClick = (event) => {
+  // 如果当前组件是文本组件，则进入编辑模式
+  if (props.component.key === 'VText') {
+    console.log('文本组件双击，尝试进入编辑模式');
+
+    // 获取组件内部的引用
+    const componentElement = event.currentTarget;
+    if (componentElement) {
+      // 找到文本显示元素
+      const textInner = componentElement.querySelector('.v-text-inner');
+      if (textInner) {
+        // 手动触发文本元素的双击事件
+        textInner.dispatchEvent(
+          new MouseEvent('dblclick', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          })
+        );
+      } else {
+        console.log('未找到文本显示元素');
+      }
+    }
+  }
 };
 </script>
 

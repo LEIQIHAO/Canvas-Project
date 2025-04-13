@@ -7,15 +7,17 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-pattern .gitignore .history",
     "format": "prettier --write \"src/**/*.{js,vue}\"",
     "prepare": "husky install"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "@eslint/js": "^9.24.0",
     "axios": "^1.8.4",
     "dayjs": "^1.11.13",
     "element-plus": "^2.9.7",
+    "globals": "^16.0.0",
     "mathjs": "^14.4.0",
     "pinia": "^3.0.1",
     "uuid": "^11.1.0",
