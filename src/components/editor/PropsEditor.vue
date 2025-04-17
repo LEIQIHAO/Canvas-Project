@@ -1,6 +1,30 @@
 <template>
   <div class="props-editor">
-    <div v-if="!selectedComponent" class="props-placeholder">
+    <!-- 画笔工具面板 -->
+    <div v-if="editorMode === 'paintbrush'" class="paint-tool-panel">
+      <div class="title">画笔工具</div>
+
+      <div class="attr-list">
+        <div class="attr-form">
+          <div class="attr-form-item">
+            <div class="attr-label">画笔颜色</div>
+            <el-color-picker v-model="brushColor" show-alpha @change="updateBrushColor" />
+          </div>
+
+          <div class="attr-form-item">
+            <div class="attr-label">画笔大小 ({{ brushSize }}px)</div>
+            <el-slider v-model="brushSize" :min="1" :max="30" :step="1" @change="updateBrushSize" />
+          </div>
+
+          <div class="attr-form-item">
+            <el-button type="danger" @click="clearCanvas"> 清空画布 </el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 常规组件属性面板 -->
+    <div v-else-if="!selectedComponent" class="props-placeholder">
       <h4>未选中组件</h4>
     </div>
     <div v-else class="attr-container">
@@ -324,7 +348,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, nextTick } from 'vue';
+import { ref, watch, computed, nextTick, inject } from 'vue';
 import { useCanvasStore } from '@/stores/canvas';
 import {
   ElForm,
@@ -340,6 +364,7 @@ import {
   ElRow,
   ElCol,
   ElColorPicker,
+  ElButton,
 } from 'element-plus';
 
 const props = defineProps({
@@ -357,6 +382,12 @@ const componentProps = ref({});
 
 // Keep track of active collapse panels
 const activeCollapseNames = ref(['transform', 'props', 'fontStyle']); // Open by default
+
+// 注入依赖
+const editorMode = inject('editorMode', ref('select'));
+const brushColor = inject('brushColor', ref('#000000'));
+const brushSize = inject('brushSize', ref(5));
+const clearPaintCanvas = inject('clearPaintCanvas', () => {});
 
 // 根据组件类型获取Tag标签的类型
 const getTagType = (componentKey) => {
@@ -781,6 +812,21 @@ watch(
     }
   }
 );
+
+// 更新画笔颜色
+const updateBrushColor = () => {
+  // 这里会自动更新，因为使用的是响应式引用
+};
+
+// 更新画笔大小
+const updateBrushSize = () => {
+  // 这里会自动更新，因为使用的是响应式引用
+};
+
+// 清空画布
+const clearCanvas = () => {
+  clearPaintCanvas();
+};
 </script>
 
 <style scoped>
@@ -968,5 +1014,17 @@ p {
   font-size: 13px;
   text-align: center;
   margin-top: 10px;
+}
+
+.paint-tool-panel {
+  padding: 15px;
+}
+
+.paint-tool-panel .title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
 }
 </style>

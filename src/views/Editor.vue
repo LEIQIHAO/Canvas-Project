@@ -62,9 +62,12 @@
             <el-divider direction="vertical" />
             <!-- Separator -->
             <el-button type="primary" size="small" @click="handlePreview"> 预览 </el-button>
-            <el-button size="small" @click="handleSave"> 保存 </el-button>
-            <el-button size="small" @click="handleLoad"> 加载 </el-button>
+            <el-button type="primary" size="small" @click="handleImportJSON"> 导入JSON </el-button>
+            <el-button type="primary" size="small" @click="handleExportImage"> 导出图片 </el-button>
+            <el-button size="small" @click="handleSave"> 保存到本地 </el-button>
+            <el-button size="small" @click="handleLoad"> 加载本地画布 </el-button>
             <el-button type="danger" size="small" @click="handleClear"> 清空 </el-button>
+
             <el-button
               type="danger"
               size="small"
@@ -96,10 +99,17 @@
                   v-for="material in materials"
                   :key="material.key"
                   class="material-item"
-                  draggable="true"
+                  :class="{
+                    'material-active':
+                      material.component === 'PaintTool' && editorMode === 'paintbrush',
+                  }"
+                  :draggable="material.component !== 'PaintTool'"
                   :title="material.label"
-                  @dragstart="handleDragStart(material, $event)"
+                  @dragstart="
+                    material.component !== 'PaintTool' && handleDragStart(material, $event)
+                  "
                   @dragend="handleDragEnd"
+                  @click="material.component === 'PaintTool' && togglePaintbrushMode()"
                 >
                   <el-icon :size="22">
                     <component :is="material.icon" />
@@ -135,6 +145,7 @@
               transformOrigin: `center center`,
               width: `${canvasWidth}px`,
               height: `${canvasHeight}px`,
+              cursor: editorMode === 'paintbrush' ? 'crosshair' : 'default',
             }"
             @dragover.prevent
             @dragenter.prevent
@@ -144,6 +155,16 @@
             @dblclick.self="handleCanvasDoubleClick"
             @contextmenu="handleContextMenu"
           >
+            <!-- 绘图Canvas层 -->
+            <canvas
+              v-show="editorMode === 'paintbrush'"
+              ref="paintCanvas"
+              class="paint-canvas"
+              :width="canvasWidth"
+              :height="canvasHeight"
+            />
+
+            <!-- 组件渲染层 -->
             <CanvasComponentRenderer
               v-for="component in canvasStore.components"
               :key="component.id"
@@ -210,7 +231,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, watch, nextTick } from 'vue';
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  defineAsyncComponent,
+  watch,
+  nextTick,
+  h,
+  provide,
+} from 'vue';
+
+// 导入html2canvas库
+import html2canvas from 'html2canvas';
+
 import { useCanvasStore } from '@/stores/canvas'; // 导入 store
 import PropsEditor from '@/components/editor/PropsEditor.vue'; // 导入属性编辑器
 import {
@@ -221,6 +256,7 @@ import {
   ElDivider,
   ElButtonGroup,
   ElInputNumber,
+  ElLoading,
 } from 'element-plus'; // 添加 ElButtonGroup 和 ElInputNumber
 import LayerPanel from '@/components/editor/LayerPanel.vue'; // Import LayerPanel
 import { ElScrollbar, ElContainer, ElAside, ElHeader, ElMain, ElIcon } from 'element-plus'; // Import ElScrollbar etc.
@@ -243,6 +279,7 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowDown,
+  Pointer,
 } from '@element-plus/icons-vue';
 
 // Import specific icons
@@ -273,6 +310,7 @@ import SVGStar from '@/components/custom/SVGStar.vue';
 import VTable from '@/components/custom/VTable.vue';
 import VChart from '@/components/custom/VChart.vue';
 import VTag from '@/components/custom/VTag.vue'; // 导入Tag组件
+import Paintbrush from '@/components/custom/Paintbrush.vue'; // 导入画笔组件
 
 // Dynamically import the recursive component renderer to avoid self-reference issues
 const CanvasComponentRenderer = defineAsyncComponent(
@@ -374,7 +412,7 @@ const materials = ref([
   {
     component: 'VTag',
     label: '标签',
-    icon: EditPen,
+    icon: IconEditPen,
     propValue: '标签',
     style: {
       width: 80,
@@ -562,6 +600,11 @@ const materials = ref([
       backgroundColor: '#fff',
     },
   }, // Use VInput key
+  {
+    component: 'PaintTool', // 特殊工具组件，不会被拖拽到画布上
+    label: '画笔工具',
+    icon: IconEditPen,
+  },
 ]);
 
 // --- Drag & Drop ---
@@ -635,6 +678,8 @@ const getComponentByType = (type) => {
       return VChart;
     case 'VInput':
       return ElInput;
+    case 'Paintbrush':
+      return Paintbrush;
     case 'group':
       return 'div';
     default:
@@ -759,6 +804,19 @@ const createComponentFromMaterial = (material, left, top) => {
       } else {
         // 确保即使 propValue 不是对象也有默认值
         props = { url: material.propValue || 'https://picsum.photos/200/300' };
+      }
+      break;
+    case 'Paintbrush':
+      // 特殊处理画笔组件
+      if (typeof material.propValue === 'object' && material.propValue !== null) {
+        props = { ...material.propValue };
+      } else {
+        props = {
+          initialColor: '#000000',
+          initialSize: 5,
+          backgroundColor: '#ffffff',
+          showControls: true,
+        };
       }
       break;
     case 'SVGStar':
@@ -1188,14 +1246,48 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
 
 // --- 新增：顶部操作栏处理函数 ---
 const handlePreview = () => {
-  ElMessageBox.alert(
-    `<pre>${JSON.stringify(canvasStore.components, null, 2)}</pre>`,
-    '画布数据预览',
-    {
-      dangerouslyUseHTMLString: true,
-      confirmButtonText: '关闭',
-    }
-  );
+  ElMessageBox({
+    title: '画布数据预览',
+    message: h('div', { style: 'height: 60vh; overflow: hidden;' }, [
+      h(
+        ElScrollbar,
+        { height: '100%' },
+        {
+          default: () => [
+            h(
+              'pre',
+              { style: 'margin: 0; white-space: pre-wrap;' },
+              JSON.stringify(canvasStore.components, null, 2)
+            ),
+          ],
+        }
+      ),
+    ]),
+    showCancelButton: true,
+    confirmButtonText: '导出JSON',
+    cancelButtonText: '关闭',
+    dangerouslyUseHTMLString: false,
+    beforeClose: (action, instance, done) => {
+      if (action === 'confirm') {
+        // 创建Blob对象
+        const blob = new Blob([JSON.stringify(canvasStore.components, null, 2)], {
+          type: 'application/json',
+        });
+        // 创建下载链接
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'canvas-data.json';
+        // 触发下载
+        document.body.appendChild(link);
+        link.click();
+        // 清理
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+      done(); // 关闭对话框
+    },
+  });
 };
 
 const handleSave = () => {
@@ -1236,7 +1328,7 @@ const handleLoad = () => {
 };
 
 const handleClear = () => {
-  if (canvasStore.components.length === 0) {
+  if (canvasStore.components.length === 0 && !paintCanvas.value) {
     ElMessage.info('画布已经是空的');
     return;
   }
@@ -1247,6 +1339,8 @@ const handleClear = () => {
   })
     .then(() => {
       canvasStore.clearCanvas();
+      // 清空画笔内容
+      clearPaintCanvas();
       ElMessage.success('画布已清空');
     })
     .catch(() => {
@@ -1487,6 +1581,12 @@ const selectionBox = ref({
 
 // 处理画布鼠标按下事件，开始拖拽画布或选择框
 const handleCanvasMouseDown = (event) => {
+  // 如果是画笔模式且是鼠标左键
+  if (editorMode.value === 'paintbrush' && event.button === 0) {
+    handlePaintStart(event);
+    return;
+  }
+
   // 检测鼠标右键按下，启动画布拖动
   if (event.button === 2) {
     event.preventDefault();
@@ -1994,6 +2094,311 @@ const handleCanvasDoubleClick = (event) => {
 
   createComponentFromMaterial(material, clickX, clickY);
 };
+
+// 在script部分添加handleImportJSON函数
+const handleImportJSON = () => {
+  const inputValue = ref('');
+
+  ElMessageBox({
+    title: '导入JSON数据',
+    message: h('div', { style: 'height: 60vh; width: 60vw; overflow: hidden; margin: 0 -15px;' }, [
+      h(
+        ElScrollbar,
+        { height: '100%', style: 'padding: 0;' },
+        {
+          default: () => [
+            h(ElInput, {
+              type: 'textarea',
+              modelValue: inputValue.value,
+              'onUpdate:modelValue': (val) => {
+                inputValue.value = val;
+              },
+              rows: 18,
+              placeholder: '请粘贴要导入的JSON数据',
+              style: 'width: 100%; height: 100%; font-family: monospace;',
+            }),
+          ],
+        }
+      ),
+    ]),
+    customClass: 'import-json-dialog',
+    showCancelButton: true,
+    confirmButtonText: '确认导入',
+    cancelButtonText: '取消',
+    beforeClose: (action, instance, done) => {
+      if (action === 'confirm') {
+        try {
+          const jsonData = JSON.parse(inputValue.value);
+
+          // 确认是否覆盖当前画布
+          ElMessageBox.confirm('导入新的JSON数据将覆盖当前画布的所有内容，是否继续？', '确认导入', {
+            confirmButtonText: '确认',
+            cancelButtonText: '取消',
+            type: 'warning',
+          })
+            .then(() => {
+              // 用户确认后，更新画布数据
+              canvasStore.setCanvasComponents(jsonData);
+              ElMessage.success('JSON数据导入成功');
+              done();
+            })
+            .catch(() => {
+              // 用户取消操作
+              ElMessage.info('已取消导入');
+              // 不关闭输入框，允许用户修改后重试
+            });
+        } catch (error) {
+          ElMessage.error('JSON格式错误，请检查输入的数据格式');
+          // 不关闭输入框，允许用户修改后重试
+        }
+      } else {
+        done(); // 如果是取消操作，直接关闭
+      }
+    },
+  });
+};
+
+// 定义导出画布为图片的函数
+const handleExportImage = () => {
+  // 显示加载中
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在生成图片预览...',
+    background: 'rgba(255, 255, 255, 0.7)',
+    customClass: 'export-image-loading',
+  });
+
+  // 确保画布组件已完全渲染
+  nextTick(() => {
+    if (!canvasPanelRef.value) {
+      loading.close();
+      ElMessage.error('画布元素不可用');
+      return;
+    }
+
+    // 保存当前缩放状态
+    const currentScale = scale.value;
+
+    // 临时重置缩放到100%以确保导出清晰度
+    scale.value = 1;
+
+    // 添加导出模式类名，移除背景栅格
+    canvasPanelRef.value.classList.add('export-mode');
+
+    // 使用nextTick确保画布在新缩放值下重新渲染且背景已移除
+    nextTick(async () => {
+      try {
+        // 配置html2canvas选项
+        const options = {
+          scale: 2, // 提高分辨率，获得更清晰的图片
+          useCORS: true, // 允许跨域图片
+          allowTaint: true, // 允许跨域图片
+          backgroundColor: '#ffffff', // 设置背景色为白色
+          logging: false, // 关闭日志
+        };
+
+        // 使用html2canvas生成图片
+        const canvas = await html2canvas(canvasPanelRef.value, options);
+
+        // 将canvas转换为图片URL
+        const imgUrl = canvas.toDataURL('image/png');
+
+        // 关闭加载提示
+        loading.close();
+
+        // 先移除导出模式类名，恢复画布显示
+        canvasPanelRef.value.classList.remove('export-mode');
+
+        // 恢复原始缩放
+        scale.value = currentScale;
+
+        // 展示预览对话框
+        ElMessageBox({
+          title: '导出图片预览',
+          message: h('div', { style: 'text-align: center;' }, [
+            h('img', {
+              src: imgUrl,
+              style:
+                'max-width: 100%; max-height: 70vh; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);',
+            }),
+          ]),
+          showCancelButton: true,
+          confirmButtonText: '确认导出',
+          cancelButtonText: '取消',
+          dangerouslyUseHTMLString: false,
+          customClass: 'image-preview-dialog',
+          beforeClose: (action, instance, done) => {
+            if (action === 'confirm') {
+              // 创建下载链接
+              const link = document.createElement('a');
+              link.download = `canvas-${new Date().getTime()}.png`;
+              link.href = imgUrl;
+
+              // 触发下载
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+
+              ElMessage.success('图片已成功导出');
+            }
+            done(); // 关闭对话框
+          },
+        });
+      } catch (error) {
+        console.error('导出图片失败:', error);
+        ElMessage.error('导出图片失败');
+
+        // 移除导出模式类名，恢复背景栅格
+        canvasPanelRef.value.classList.remove('export-mode');
+
+        // 恢复原始缩放
+        scale.value = currentScale;
+        loading.close();
+      }
+    });
+  });
+};
+
+// 画布模式
+const editorMode = ref('select'); // 'select' | 'paintbrush'
+const paintCanvas = ref(null);
+const paintCtx = ref(null);
+const brushColor = ref('#000000');
+const brushSize = ref(5);
+const isDrawing = ref(false);
+let lastX = 0;
+let lastY = 0;
+
+// 设置编辑器模式
+const setEditorMode = (mode) => {
+  // 如果从画笔模式切换出去，清理事件监听
+  if (editorMode.value === 'paintbrush' && mode !== 'paintbrush') {
+    cleanupPaintEvents();
+  }
+
+  editorMode.value = mode;
+
+  // 如果切换到画笔模式，初始化画布
+  if (mode === 'paintbrush') {
+    nextTick(() => {
+      initPaintCanvas();
+    });
+  }
+};
+
+// 初始化画笔画布
+const initPaintCanvas = () => {
+  if (!paintCanvas.value) return;
+
+  paintCtx.value = paintCanvas.value.getContext('2d');
+  if (!paintCtx.value) return;
+
+  // 设置画笔样式
+  updatePaintContext();
+};
+
+// 更新画笔上下文
+const updatePaintContext = () => {
+  if (!paintCtx.value) return;
+
+  paintCtx.value.strokeStyle = brushColor.value;
+  paintCtx.value.lineWidth = brushSize.value;
+  paintCtx.value.lineCap = 'round';
+  paintCtx.value.lineJoin = 'round';
+};
+
+// 监听画笔属性变化
+watch([brushColor, brushSize], () => {
+  updatePaintContext();
+});
+
+// 画笔绘画相关函数
+const handlePaintStart = (event) => {
+  event.preventDefault();
+  isDrawing.value = true;
+
+  const canvasRect = canvasPanelRef.value.getBoundingClientRect();
+  const x = (event.clientX - canvasRect.left) / scale.value;
+  const y = (event.clientY - canvasRect.top) / scale.value;
+
+  lastX = x;
+  lastY = y;
+
+  // 开始新路径
+  paintCtx.value.beginPath();
+  paintCtx.value.moveTo(x, y);
+
+  // 添加事件监听
+  document.addEventListener('mousemove', handlePaintMove);
+  document.addEventListener('mouseup', handlePaintEnd);
+};
+
+const handlePaintMove = (event) => {
+  if (!isDrawing.value) return;
+
+  const canvasRect = canvasPanelRef.value.getBoundingClientRect();
+  const x = (event.clientX - canvasRect.left) / scale.value;
+  const y = (event.clientY - canvasRect.top) / scale.value;
+
+  paintCtx.value.lineTo(x, y);
+  paintCtx.value.stroke();
+
+  lastX = x;
+  lastY = y;
+};
+
+const handlePaintEnd = () => {
+  isDrawing.value = false;
+
+  // 清理事件监听
+  document.removeEventListener('mousemove', handlePaintMove);
+  document.removeEventListener('mouseup', handlePaintEnd);
+};
+
+const cleanupPaintEvents = () => {
+  document.removeEventListener('mousemove', handlePaintMove);
+  document.removeEventListener('mouseup', handlePaintEnd);
+  isDrawing.value = false;
+};
+
+// 清空画布
+const clearPaintCanvas = () => {
+  if (!paintCtx.value || !paintCanvas.value) return;
+  paintCtx.value.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
+};
+
+// 确保在组件销毁时清理事件监听
+onUnmounted(() => {
+  cleanupPaintEvents();
+});
+
+// 初始化后设置画布尺寸
+watch([canvasWidth, canvasHeight], () => {
+  nextTick(() => {
+    if (paintCanvas.value) {
+      paintCanvas.value.width = canvasWidth.value;
+      paintCanvas.value.height = canvasHeight.value;
+      // 重置画笔设置
+      updatePaintContext();
+    }
+  });
+});
+
+// 添加切换画笔模式的函数
+const togglePaintbrushMode = () => {
+  // 切换画笔模式
+  if (editorMode.value === 'paintbrush') {
+    setEditorMode('select');
+  } else {
+    setEditorMode('paintbrush');
+  }
+};
+
+// 提供画笔相关变量给PropsEditor
+provide('editorMode', editorMode);
+provide('brushColor', brushColor);
+provide('brushSize', brushSize);
+provide('clearPaintCanvas', clearPaintCanvas);
 </script>
 
 <style scoped>
@@ -2214,6 +2619,12 @@ const handleCanvasDoubleClick = (event) => {
   box-shadow: 0 0 5px rgba(64, 158, 255, 0.3);
 }
 
+.material-item.material-active {
+  border-color: #409eff;
+  background-color: rgba(64, 158, 255, 0.1);
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.4);
+}
+
 /* 右侧属性面板样式 */
 .right-panel {
   height: 100%;
@@ -2364,5 +2775,92 @@ const handleCanvasDoubleClick = (event) => {
 /* 确保所有可交互元素在点击时没有轮廓线 */
 :deep(*:focus) {
   outline: none !important;
+}
+
+/* 导入JSON对话框样式 */
+:global(.import-json-dialog) {
+  width: 80vw !important;
+  max-width: 800px !important;
+}
+
+:global(.import-json-dialog .el-message-box__message) {
+  padding: 0 !important;
+}
+
+:global(.import-json-dialog .el-textarea__inner) {
+  min-height: 300px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  padding: 12px 15px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border-radius: 0 !important;
+  resize: none !important;
+}
+
+:global(.import-json-dialog .el-scrollbar__view) {
+  height: 100% !important;
+}
+
+:global(.import-json-dialog .el-message-box__content) {
+  padding: 15px !important;
+  margin: 0 !important;
+}
+
+:global(.import-json-dialog .el-message-box__container) {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 导出图片加载样式 */
+:global(.export-image-loading .el-loading-text) {
+  font-size: 16px;
+  color: #409eff;
+}
+
+:global(.export-image-loading .el-loading-spinner) {
+  margin-top: -30px;
+}
+
+/* 画布导出时的无背景样式 */
+.center-panel.export-mode {
+  background-image: none !important;
+  background-color: #ffffff !important;
+}
+
+/* 图片预览对话框样式 */
+:global(.image-preview-dialog) {
+  width: auto !important;
+  max-width: 90vw !important;
+}
+
+:global(.image-preview-dialog .el-message-box__content) {
+  padding: 10px !important;
+  margin: 10px 0 !important;
+}
+
+:global(.image-preview-dialog .el-message-box__message) {
+  padding: 0 !important;
+}
+
+/* 画笔相关样式 */
+.paint-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.brush-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  gap: 8px;
+}
+
+.brush-size-slider {
+  width: 100px;
+  margin: 0 8px;
 }
 </style>
