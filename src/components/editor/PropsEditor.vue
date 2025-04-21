@@ -116,8 +116,11 @@
           </el-collapse-item>
 
           <!-- 组件特定属性 -->
-          <el-collapse-item title="组件属性" name="props">
+          <el-collapse-item v-if="selectedComponent.key !== 'VText'" title="组件属性" name="props">
             <div v-if="selectedComponent.key === 'VText'" class="attr-form">
+              <!-- This VText specific section inside will effectively never be shown due to the outer v-if,
+                   but keeping the structure for potential future changes or clarity.
+                   Alternatively, this inner div could be removed entirely. -->
               <div class="attr-form-item">
                 <div class="attr-label">文本内容</div>
                 <el-input
@@ -294,7 +297,8 @@
             </div>
           </el-collapse-item>
 
-          <el-collapse-item title="字体样式" name="fontStyle">
+          <!-- 字体样式 -->
+          <el-collapse-item v-if="selectedComponent.key !== 'VText'" title="字体样式" name="style">
             <div class="attr-form">
               <div class="attr-form-item">
                 <div class="attr-label">字体大小</div>
