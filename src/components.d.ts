@@ -8,7 +8,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    ArrowShape: typeof import('./components/custom/ArrowShape.vue')['default']
     CanvasComponentRenderer: typeof import('./components/editor/CanvasComponentRenderer.vue')['default']
     CircleShape: typeof import('./components/custom/CircleShape.vue')['default']
     DataFetcher: typeof import('./components/DataFetcher.vue')['default']
