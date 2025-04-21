@@ -758,7 +758,35 @@ const handleDrop = (event) => {
 
   // 使用获取到的物料创建组件
   console.log('即将调用 createComponentFromMaterial...');
-  createComponentFromMaterial(material, dropLeft, dropTop);
+
+  // 检查是否是VText组件，如果是，添加自定义标记
+  if (material.component === 'VText') {
+    console.log('检测到拖放的是VText组件，添加拖放标记');
+    // 修改深拷贝的组件对象，添加标记
+    const materialCopy = JSON.parse(JSON.stringify(material));
+
+    // 在props中添加一个拖放标记
+    if (!materialCopy.props) {
+      materialCopy.props = {};
+    }
+    materialCopy.props.dragDropCreated = true;
+    materialCopy.props.dragDropTimestamp = Date.now();
+
+    // 使用添加了标记的组件创建
+    const newComponent = createComponentFromMaterial(materialCopy, dropLeft, dropTop);
+
+    // 使用延迟后触发自定义事件，通知该组件进入编辑模式
+    setTimeout(() => {
+      console.log('发送文本组件创建完成事件', newComponent?.id);
+      const event = new CustomEvent('vtext-drag-created', {
+        detail: { textId: newComponent?.id, timestamp: Date.now() },
+      });
+      window.dispatchEvent(event);
+    }, 100);
+  } else {
+    // 正常创建其他组件
+    createComponentFromMaterial(material, dropLeft, dropTop);
+  }
 };
 
 // 从物料创建组件的辅助函数

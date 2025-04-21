@@ -11,163 +11,165 @@
       v-html="displayContent"
     />
 
-    <!-- 富文本编辑模式：弹窗形式 -->
-    <div v-if="isEditing" class="v-text-editor-modal" @mousedown.self="cancelEditing">
-      <div class="editor-modal-content" @mousedown.stop>
-        <div class="editor-modal-header">
-          <h3>编辑文本</h3>
-        </div>
-
-        <div class="editor-toolbar">
-          <!-- 字体选择 -->
-          <div class="toolbar-group font-family-selector">
-            <span class="toolbar-label">字体:</span>
-            <select
-              :value="currentFontFamily"
-              :disabled="!hasSelection"
-              @change="setFontFamily"
-              @mousedown.stop
-            >
-              <option value="Arial, sans-serif">Arial</option>
-              <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
-              <option value="'SimSun', serif">宋体</option>
-              <option value="'SimHei', sans-serif">黑体</option>
-              <option value="'KaiTi', serif">楷体</option>
-              <option value="'Helvetica', sans-serif">Helvetica</option>
-              <option value="'Times New Roman', serif">Times New Roman</option>
-            </select>
+    <!-- 富文本编辑模式：使用传送门组件(Teleport)将弹窗挂载到body -->
+    <Teleport v-if="isEditing" to="body">
+      <div class="v-text-editor-modal" @click.self="cancelEditing" @mousedown.stop>
+        <div ref="modalContentRef" class="editor-modal-content" @click.stop>
+          <div class="editor-modal-header">
+            <h3>编辑文本</h3>
           </div>
 
-          <!-- 字号选择 -->
-          <div class="toolbar-group font-size-selector">
-            <span class="toolbar-label">字号:</span>
-            <select
-              :value="currentFontSize"
-              :disabled="!hasSelection"
-              @change="setFontSize"
-              @mousedown.stop
-            >
-              <option value="12px">12px</option>
-              <option value="14px">14px (默认)</option>
-              <option value="16px">16px</option>
-              <option value="18px">18px</option>
-              <option value="20px">20px</option>
-              <option value="24px">24px</option>
-              <option value="28px">28px</option>
-              <option value="32px">32px</option>
-              <option value="36px">36px</option>
-              <option value="48px">48px</option>
-              <option value="64px">64px</option>
-            </select>
-          </div>
+          <div class="editor-toolbar">
+            <!-- 字体选择 -->
+            <div class="toolbar-group font-family-selector">
+              <span class="toolbar-label">字体:</span>
+              <select
+                :value="currentFontFamily"
+                :disabled="!hasSelection"
+                @change="setFontFamily"
+                @click.stop
+              >
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
+                <option value="'SimSun', serif">宋体</option>
+                <option value="'SimHei', sans-serif">黑体</option>
+                <option value="'KaiTi', serif">楷体</option>
+                <option value="'Helvetica', sans-serif">Helvetica</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+              </select>
+            </div>
 
-          <!-- BIUS工具栏 -->
-          <div class="toolbar-group bius-group">
-            <span class="toolbar-label">格式:</span>
-            <button
-              class="toolbar-btn"
-              :class="{ active: isBoldActive }"
-              title="加粗"
-              :disabled="!hasSelection"
-              @mousedown.stop="execCommand('bold')"
-            >
-              <b>B</b>
-            </button>
-            <button
-              class="toolbar-btn"
-              :class="{ active: isItalicActive }"
-              title="斜体"
-              :disabled="!hasSelection"
-              @mousedown.stop="execCommand('italic')"
-            >
-              <i>I</i>
-            </button>
-            <button
-              class="toolbar-btn"
-              :class="{ active: isUnderlineActive }"
-              title="下划线"
-              :disabled="!hasSelection"
-              @mousedown.stop="execCommand('underline')"
-            >
-              <u>U</u>
-            </button>
-            <button
-              class="toolbar-btn"
-              :class="{ active: isStrikeThroughActive }"
-              title="删除线"
-              :disabled="!hasSelection"
-              @mousedown.stop="execCommand('strikeThrough')"
-            >
-              <span style="text-decoration: line-through">S</span>
-            </button>
-          </div>
+            <!-- 字号选择 -->
+            <div class="toolbar-group font-size-selector">
+              <span class="toolbar-label">字号:</span>
+              <select
+                :value="currentFontSize"
+                :disabled="!hasSelection"
+                @change="setFontSize"
+                @click.stop
+              >
+                <option value="12px">12px</option>
+                <option value="14px">14px (默认)</option>
+                <option value="16px">16px</option>
+                <option value="18px">18px</option>
+                <option value="20px">20px</option>
+                <option value="24px">24px</option>
+                <option value="28px">28px</option>
+                <option value="32px">32px</option>
+                <option value="36px">36px</option>
+                <option value="48px">48px</option>
+                <option value="64px">64px</option>
+              </select>
+            </div>
 
-          <!-- 颜色选择工具 -->
-          <div class="toolbar-group color-group">
-            <div class="color-picker-wrapper">
-              <span class="toolbar-label">文本颜色:</span>
-              <div
-                ref="foreColorPreviewRef"
-                class="color-preview"
-                :style="{ backgroundColor: currentTextColor }"
-              />
-              <input
-                type="color"
-                :value="currentTextColor"
-                title="文字颜色"
-                class="color-picker"
-                @change="setForeColor"
-                @mousedown.stop
-              />
+            <!-- BIUS工具栏 -->
+            <div class="toolbar-group bius-group">
+              <span class="toolbar-label">格式:</span>
+              <button
+                class="toolbar-btn"
+                :class="{ active: isBoldActive }"
+                title="加粗"
+                :disabled="!hasSelection"
+                @click.stop="execCommand('bold')"
+              >
+                <b>B</b>
+              </button>
+              <button
+                class="toolbar-btn"
+                :class="{ active: isItalicActive }"
+                title="斜体"
+                :disabled="!hasSelection"
+                @click.stop="execCommand('italic')"
+              >
+                <i>I</i>
+              </button>
+              <button
+                class="toolbar-btn"
+                :class="{ active: isUnderlineActive }"
+                title="下划线"
+                :disabled="!hasSelection"
+                @click.stop="execCommand('underline')"
+              >
+                <u>U</u>
+              </button>
+              <button
+                class="toolbar-btn"
+                :class="{ active: isStrikeThroughActive }"
+                title="删除线"
+                :disabled="!hasSelection"
+                @click.stop="execCommand('strikeThrough')"
+              >
+                <span style="text-decoration: line-through">S</span>
+              </button>
+            </div>
+
+            <!-- 颜色选择工具 -->
+            <div class="toolbar-group color-group">
+              <div class="color-picker-wrapper">
+                <span class="toolbar-label">文本颜色:</span>
+                <div
+                  ref="foreColorPreviewRef"
+                  class="color-preview"
+                  :style="{ backgroundColor: currentTextColor }"
+                />
+                <input
+                  type="color"
+                  :value="currentTextColor"
+                  title="文字颜色"
+                  class="color-picker"
+                  @change="setForeColor"
+                  @click.stop
+                />
+              </div>
+            </div>
+
+            <div class="toolbar-group bgcolor-group">
+              <div class="color-picker-wrapper">
+                <span class="toolbar-label">背景色:</span>
+                <div
+                  ref="bgColorPreviewRef"
+                  class="color-preview"
+                  :style="{ backgroundColor: currentBgColor }"
+                />
+                <input
+                  type="color"
+                  :value="currentBgColor"
+                  title="背景颜色"
+                  class="color-picker"
+                  @change="setBackColor"
+                  @click.stop
+                />
+              </div>
             </div>
           </div>
 
-          <div class="toolbar-group bgcolor-group">
-            <div class="color-picker-wrapper">
-              <span class="toolbar-label">背景色:</span>
-              <div
-                ref="bgColorPreviewRef"
-                class="color-preview"
-                :style="{ backgroundColor: currentBgColor }"
-              />
-              <input
-                type="color"
-                :value="currentBgColor"
-                title="背景颜色"
-                class="color-picker"
-                @change="setBackColor"
-                @mousedown.stop
-              />
+          <!-- 可编辑区域 -->
+          <div
+            ref="editRef"
+            class="rich-editor"
+            :style="editableTextStyle"
+            contenteditable="true"
+            @keydown.esc="cancelEditing"
+            @keydown.ctrl.enter="saveContent"
+            @click.stop
+            @dblclick.stop
+          />
+
+          <!-- 底部操作按钮 -->
+          <div class="editor-modal-footer">
+            <div class="editor-modal-actions">
+              <button class="modal-action-btn cancel" @click.stop="cancelEditing">取消</button>
+              <button class="modal-action-btn save" @click.stop="saveContent">保存</button>
             </div>
-          </div>
-        </div>
-
-        <!-- 可编辑区域 -->
-        <div
-          ref="editRef"
-          class="rich-editor"
-          :style="editableTextStyle"
-          contenteditable="true"
-          @keydown.esc="cancelEditing"
-          @keydown.ctrl.enter="saveContent"
-          @mousedown.stop
-          @dblclick.stop
-        />
-
-        <!-- 底部操作按钮 -->
-        <div class="editor-modal-footer">
-          <div class="editor-modal-actions">
-            <button class="modal-action-btn cancel" @mousedown.stop="cancelEditing">取消</button>
-            <button class="modal-action-btn save" @mousedown.stop="saveContent">保存</button>
           </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, nextTick, onMounted, watch } from 'vue';
+import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useCanvasStore } from '@/stores/canvas';
 
 // 获取画布store
@@ -192,12 +194,20 @@ const props = defineProps({
 let isNewlyCreated = false;
 // 是否是双击创建的组件（内容为空）
 let isEmptyCreated = false;
+// 添加组件当前ID追踪
+let currentComponentId = null;
+// 添加当前是否正在进行拖拽操作
+let isDraggingOperation = false;
+// 添加全局变量跟踪当前正在编辑的文本组件ID
+const currentEditingTextId = ref(null);
 
 // 编辑状态和编辑内容
 const isEditing = ref(false);
 const editRef = ref(null);
 // 添加文本选择状态
 const hasSelection = ref(false);
+// 添加模态框内容区域的引用
+const modalContentRef = ref(null);
 
 // 当前样式状态
 const currentTextColor = ref('#000000');
@@ -214,6 +224,167 @@ const isStrikeThroughActive = ref(false);
 // Refs for preview divs
 const foreColorPreviewRef = ref(null);
 const bgColorPreviewRef = ref(null);
+
+// 自定义事件
+const emit = defineEmits(['editing-started', 'editing-ended']);
+
+// 添加全局点击事件处理
+const handleGlobalClick = (event) => {
+  // 如果正在进行拖拽操作，不处理点击事件
+  if (isDraggingOperation) {
+    console.log('正在进行拖拽操作，忽略点击事件');
+    return;
+  }
+
+  if (isEditing.value) {
+    // 检查点击是否在弹窗内容区域外
+    const isClickOutsideModal =
+      modalContentRef.value && !modalContentRef.value.contains(event.target);
+    const isClickOnModal = event.target.classList.contains('v-text-editor-modal');
+
+    // 我们已经在模态框上添加了 click.self 事件，这里只处理完全在外部的点击
+    // 如果点击在弹窗外且不是弹窗本身，且不是新创建的组件，则关闭弹窗
+    if (isClickOutsideModal && !isClickOnModal) {
+      // 如果是新创建的组件，我们希望保持编辑状态，不要关闭
+      if (isNewlyCreated) {
+        console.log('点击在弹窗外部区域，但这是新创建的组件，保持编辑状态');
+        return;
+      }
+
+      console.log('点击在弹窗外部区域，关闭编辑器');
+      // 使用延时确保这个处理在其他点击事件之后执行
+      setTimeout(() => {
+        cancelEditing();
+      }, 50);
+    }
+  }
+};
+
+// 在组件挂载时添加全局事件监听
+onMounted(() => {
+  document.addEventListener('click', handleGlobalClick);
+
+  // 添加对拖拽操作的监听
+  document.addEventListener('dragstart', () => {
+    console.log('开始拖拽操作');
+    isDraggingOperation = true;
+  });
+
+  document.addEventListener('dragend', () => {
+    console.log('结束拖拽操作');
+    isDraggingOperation = false;
+  });
+
+  // 鼠标按下可能是拖拽的开始
+  document.addEventListener('mousedown', (event) => {
+    // 检查目标元素是否可能是拖拽相关元素
+    let target = event.target;
+    let isPotentialDragElement = false;
+
+    while (target && target !== document.body) {
+      if (
+        target.getAttribute('draggable') === 'true' ||
+        target.classList.contains('draggable') ||
+        target.classList.contains('component-item') ||
+        target.classList.contains('material-item')
+      ) {
+        isPotentialDragElement = true;
+        break;
+      }
+      target = target.parentElement;
+    }
+
+    if (isPotentialDragElement) {
+      isDraggingOperation = true;
+      console.log('可能开始拖拽操作');
+
+      // 使用延时重置拖拽状态，防止短暂点击被误认为是拖拽
+      setTimeout(() => {
+        if (!event.defaultPrevented && event.button === 0) {
+          // 如果是左键单击，且未被阻止
+          isDraggingOperation = false;
+          console.log('短暂点击不是拖拽，重置状态');
+        }
+      }, 300);
+    }
+  });
+
+  // 鼠标释放，可能是拖拽结束
+  document.addEventListener('mouseup', () => {
+    if (isDraggingOperation) {
+      console.log('鼠标释放，结束拖拽操作');
+      isDraggingOperation = false;
+    }
+  });
+
+  // 注册自定义事件，监听其他文本组件的编辑状态
+  window.addEventListener('vtext-editing-started', handleOtherTextEditing);
+
+  // 添加拖放创建事件监听
+  window.addEventListener('vtext-drag-created', handleDragCreatedText);
+});
+
+// 在组件卸载前移除事件监听
+onUnmounted(() => {
+  document.removeEventListener('click', handleGlobalClick);
+  document.removeEventListener('dragstart', () => {
+    isDraggingOperation = true;
+  });
+  document.removeEventListener('dragend', () => {
+    isDraggingOperation = false;
+  });
+  document.removeEventListener('mousedown', () => {});
+  document.removeEventListener('mouseup', () => {
+    isDraggingOperation = false;
+  });
+
+  // 移除自定义事件监听
+  window.removeEventListener('vtext-editing-started', handleOtherTextEditing);
+  window.removeEventListener('vtext-drag-created', handleDragCreatedText);
+});
+
+// 处理其他文本组件开始编辑的事件
+const handleOtherTextEditing = (event) => {
+  const { textId } = event.detail;
+
+  // 如果当前组件正在编辑，且不是触发事件的组件
+  if (isEditing.value && props.element?.id !== textId) {
+    console.log(`收到其他文本组件(${textId})开始编辑的通知，关闭当前编辑弹窗`);
+
+    // 如果当前组件是新创建的空组件，则执行取消操作（会删除组件）
+    if (
+      isEmptyCreated &&
+      editRef.value &&
+      (!editRef.value.innerHTML || editRef.value.innerHTML.trim() === '')
+    ) {
+      cancelEditing();
+    } else {
+      // 否则保存当前内容
+      saveContent();
+    }
+  }
+};
+
+// 处理拖放创建文本组件的事件
+const handleDragCreatedText = (event) => {
+  const { textId, timestamp } = event.detail;
+
+  // 检查是否是当前组件
+  if (props.element?.id === textId) {
+    console.log(`接收到拖放创建事件，当前组件ID: ${textId}, 时间戳: ${timestamp}`);
+
+    // 如果当前组件不在编辑状态，检查是否有拖放创建标志
+    if (!isEditing.value && props.element?.props?.dragDropCreated) {
+      console.log(`组件 ${textId} 是拖放创建的，自动进入编辑模式`);
+
+      // 设置为新创建的组件，并启动编辑
+      isNewlyCreated = true;
+      setTimeout(() => {
+        startEditing();
+      }, 100);
+    }
+  }
+};
 
 // 显示的内容，优先使用直接传入的content，否则从element中获取
 const displayContent = computed(() => {
@@ -288,61 +459,137 @@ const initCurrentStyles = () => {
 
 // 开始编辑
 const startEditing = () => {
+  console.log(`%c[VText ${props.element?.id}] startEditing: Entering edit mode.`, 'color: blue');
+
+  // 分发事件通知其他文本组件
+  const event = new CustomEvent('vtext-editing-started', {
+    detail: { textId: props.element?.id },
+  });
+  window.dispatchEvent(event);
+
+  // 更新全局编辑状态
+  currentEditingTextId.value = props.element?.id;
+
   isEditing.value = true;
-
-  // 先初始化样式状态，确保字体大小等属性设置正确
   initCurrentStyles();
+  console.log(`[VText ${props.element?.id}] startEditing: displayContent=`, displayContent.value);
+  console.log(
+    `[VText ${props.element?.id}] startEditing: props.element.props.content=`,
+    props.element?.props?.content
+  );
+  console.log(`[VText ${props.element?.id}] startEditing: isNewlyCreated=`, isNewlyCreated);
+  console.log(`[VText ${props.element?.id}] startEditing: isEmptyCreated=`, isEmptyCreated);
+  console.log(`[VText ${props.element?.id}] startEditing: currentFontSize=`, currentFontSize.value);
 
-  // 记录原始内容用于调试
-  console.log('开始编辑，displayContent:', displayContent.value);
-  console.log('开始编辑，props.element.props.content:', props.element?.props?.content);
-  console.log('是否新创建组件:', isNewlyCreated);
-  console.log('是否空内容创建:', isEmptyCreated);
-  console.log('当前字号设置为:', currentFontSize.value);
+  // 触发编辑开始事件
+  emit('editing-started', props.element?.id);
 
-  // 使用nextTick确保DOM更新后才获取焦点
   nextTick(() => {
     if (editRef.value) {
-      // 设置初始内容
+      console.log(
+        `[VText ${props.element?.id}] startEditing (nextTick): Setting innerHTML and styles.`
+      );
       editRef.value.innerHTML = displayContent.value;
-
-      // --- 应用全局样式到编辑器容器 ---
       const globalStyle = props.element?.style || {};
       editRef.value.style.color = globalStyle.color || '#000000';
       editRef.value.style.backgroundColor = globalStyle.backgroundColor || 'transparent';
-      // 同时更新颜色选择器的初始状态
       currentTextColor.value = globalStyle.color || '#000000';
-      currentBgColor.value = globalStyle.backgroundColor || '#ffffff'; // 注意：背景色预览可能需要白色默认
-      // --- End 应用全局样式 ---
-
-      // 进行一些初始化命令，确保编辑环境正确设置
+      currentBgColor.value = globalStyle.backgroundColor || '#ffffff';
       try {
-        // 确保使用CSS样式而不是老式HTML标签
         document.execCommand('styleWithCSS', false, true);
-        // 禁用默认的文本处理
         document.execCommand('defaultParagraphSeparator', false, 'div');
       } catch (e) {
-        console.error('初始化编辑命令失败:', e);
+        console.error(
+          `[VText ${props.element?.id}] startEditing (nextTick): Error executing init commands:`,
+          e
+        );
       }
-
-      // 获取焦点
       editRef.value.focus();
-
-      // 将光标移至末尾
       const selection = window.getSelection();
       const range = document.createRange();
       range.selectNodeContents(editRef.value);
-      range.collapse(false); // 折叠到末尾
+      range.collapse(false);
       selection.removeAllRanges();
       selection.addRange(range);
-
-      // 初始化选择状态
       hasSelection.value = false;
 
-      // 添加选择监听
+      // 确保弹窗位置不受旋转影响
+      ensureModalNotRotated();
+      adjustModalPosition();
+      console.log(
+        `[VText ${props.element?.id}] startEditing (nextTick): Adding selectionchange listener.`
+      );
       document.addEventListener('selectionchange', checkSelection);
+    } else {
+      console.warn(`[VText ${props.element?.id}] startEditing (nextTick): editRef is null.`);
     }
   });
+};
+
+// 新增函数：确保弹窗不受组件旋转影响
+const ensureModalNotRotated = () => {
+  const modal = document.querySelector('.v-text-editor-modal');
+  if (modal) {
+    // 重置可能继承的旋转变换
+    modal.style.transform = 'none';
+    if (modalContentRef.value) {
+      modalContentRef.value.style.transform = 'none';
+    }
+  }
+};
+
+// 新增函数：调整弹窗位置
+const adjustModalPosition = () => {
+  nextTick(() => {
+    // 获取编辑器内容区域元素
+    if (!modalContentRef.value) return;
+
+    // 设置安全边距（像素）
+    const margin = 50;
+
+    // 获取内容区域的位置和尺寸
+    const rect = modalContentRef.value.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    // 检查是否超出视口边界
+    let translateX = 0;
+    let translateY = 0;
+
+    // 检查顶部边界
+    if (rect.top < margin) {
+      translateY = margin - rect.top;
+    }
+
+    // 检查底部边界 - 如果顶部已经调整，需要重新计算
+    if (rect.bottom + translateY > viewportHeight - margin) {
+      // 优先保证不超出底部
+      translateY = viewportHeight - margin - rect.bottom;
+    }
+
+    // 检查左侧边界
+    if (rect.left < margin) {
+      translateX = margin - rect.left;
+    }
+
+    // 检查右侧边界
+    if (rect.right + translateX > viewportWidth - margin) {
+      translateX = viewportWidth - margin - rect.right;
+    }
+
+    // 应用变换
+    if (translateX !== 0 || translateY !== 0) {
+      modalContentRef.value.style.transform = `translate(${translateX}px, ${translateY}px)`;
+      console.log(`调整弹窗位置: translateX=${translateX}px, translateY=${translateY}px`);
+    }
+  });
+};
+
+// 新增函数：重置弹窗 transform 样式
+const resetModalTransform = () => {
+  if (modalContentRef.value) {
+    modalContentRef.value.style.transform = '';
+  }
 };
 
 // 检查文本选择状态并更新按钮激活状态
@@ -395,71 +642,188 @@ const checkSelection = () => {
   }
 };
 
+// 监听组件创建时的选中状态，如果是新创建且被选中的组件，自动进入编辑模式
+watch(
+  () => props.element?.id,
+  (newId, oldId) => {
+    console.log(`[VText Watcher 1 - Creation/ID Change] Triggered. newId=${newId}, oldId=${oldId}`);
+
+    // 记录当前组件ID
+    currentComponentId = newId;
+
+    // 如果ID从无到有，说明是新创建的组件
+    if (newId && !oldId) {
+      console.log(`[VText Watcher 1] New component detected: ${newId}`);
+      isNewlyCreated = true; // 标记为新创建的组件
+      if (props.element?.props?.content === '') {
+        isEmptyCreated = true;
+        console.log(`[VText Watcher 1] Component ${newId} marked as isEmptyCreated.`);
+      }
+
+      // 使用 nextTick 延迟检查和启动编辑
+      nextTick(() => {
+        const currentSelectedId = canvasStore.primarySelectedComponent?.id;
+        console.log(
+          `[VText Watcher 1 (nextTick)] Checking selection. Current selected ID: ${currentSelectedId}, Component ID: ${newId}`
+        );
+        // 在 nextTick 中再次检查，确保选中状态稳定
+        if (currentSelectedId === newId) {
+          console.log(
+            `%c[VText Watcher 1 (nextTick)] Component ${newId} is primary selected. Calling startEditing().`,
+            'color: magenta'
+          );
+          // 为所有新创建的文本组件启动编辑模式，包括拖拽放置的
+          startEditing();
+
+          // 不要在这里重置 isNewlyCreated
+        } else {
+          console.log(
+            `[VText Watcher 1 (nextTick)] Component ${newId} is NOT primary selected. Resetting isNewlyCreated.`
+          );
+          // 如果延迟检查后发现不再被选中，也需要重置标志
+          isNewlyCreated = false;
+        }
+      });
+    }
+  },
+  { immediate: true } // immediate 确保组件加载时运行一次
+);
+
+// 添加一个Map来存储已编辑过的组件ID
+const editedComponentIds = new Map();
+
+// 移除之前的监听primarySelectedComponent的复杂逻辑，简化为只监听选择变化
+watch(
+  () => canvasStore.primarySelectedComponent,
+  (newSelectedComponent) => {
+    // 只记录日志，不再执行自动编辑逻辑
+    if (
+      newSelectedComponent &&
+      newSelectedComponent.id === props.element?.id &&
+      newSelectedComponent.key === 'VText'
+    ) {
+      console.log(
+        `[VText Selected] Component ${newSelectedComponent.id} selected, dragDropCreated=${props.element?.props?.dragDropCreated}`
+      );
+    }
+  }
+);
+
+// 监听失焦事件 (主选中组件变化)，确保编辑状态及时关闭
+watch(
+  () => canvasStore.primarySelectedComponent?.id,
+  (newSelectedId, oldSelectedId) => {
+    console.log(
+      `[VText Watcher 2 - Selection Change] Triggered. Element ID: ${props.element?.id}, New selected ID: ${newSelectedId}, Old selected ID: ${oldSelectedId}, Is Editing: ${isEditing.value}`
+    );
+
+    // 如果组件正在编辑，而且不再被选中，并且不是新创建的组件
+    // 注意：只有当编辑组件不是新选择的组件时才保存内容
+    if (isEditing.value && props.element?.id !== newSelectedId) {
+      // 如果是新创建的组件但失去选中，此时保持编辑状态，不要保存
+      if (isNewlyCreated) {
+        console.log(
+          `[VText Watcher 2] Component ${props.element?.id} is newly created, skipping auto-save.`
+        );
+        return;
+      }
+
+      console.log(
+        `%c[VText Watcher 2] Component ${props.element?.id} is editing and no longer selected (new selected: ${newSelectedId}). Calling saveContent().`,
+        'color: purple'
+      );
+      saveContent();
+    } else {
+      console.log(`[VText Watcher 2] Condition not met for auto-save/close.`);
+    }
+  }
+  // 不使用 immediate: true
+);
+
 // 保存内容
 const saveContent = () => {
+  console.log(
+    `%c[VText ${props.element?.id}] saveContent: Attempting to save. isEditing=${isEditing.value}`,
+    'color: green'
+  );
   if (!isEditing.value) return;
-
-  // 获取编辑区域的HTML内容
   const content = editRef.value ? editRef.value.innerHTML : '';
-
-  // 立即关闭编辑模式，不产生延迟感
+  console.log(`[VText ${props.element?.id}] saveContent: Content to save=`, content);
   isEditing.value = false;
-
-  // 清除选择监听
+  console.log(`[VText ${props.element?.id}] saveContent: Removing selectionchange listener.`);
   document.removeEventListener('selectionchange', checkSelection);
+  resetModalTransform(); // Ensure this is called correctly
 
-  // --- 更新全局样式和内容 ---
+  // 清除全局编辑状态
+  if (currentEditingTextId.value === props.element?.id) {
+    currentEditingTextId.value = null;
+  }
+
+  // 触发编辑结束事件
+  emit('editing-ended', props.element?.id);
+
   if (props.element?.id) {
-    // 1. 更新内容 (HTML 可能包含旧的 span 样式，但会被全局样式覆盖显示)
+    // ... (更新 store)
     canvasStore.updateComponentProps(props.element.id, { content });
-
-    // 2. 更新全局样式 (使用颜色选择器的当前值)
     const newStyle = {
       color: currentTextColor.value,
-      backgroundColor: currentBgColor.value === '#ffffff' ? 'transparent' : currentBgColor.value, // 保存时，白色背景通常意味着透明
+      backgroundColor: currentBgColor.value === '#ffffff' ? 'transparent' : currentBgColor.value,
     };
     canvasStore.updateComponentStyle(props.element.id, newStyle);
-    // 注意: 确保 canvasStore 有 updateComponentStyle 方法或 updateComponentProps 能处理 style 更新
-    // 如果没有 updateComponentStyle, 可能需要这样:
-    // canvasStore.updateComponentProps(props.element.id, { style: newStyle });
-
-    console.log('保存内容和全局样式:', content, newStyle);
+    console.log(`[VText ${props.element?.id}] saveContent: Updated store props & style.`, newStyle);
   }
-  // --- End 更新全局样式和内容 ---
-
-  // 只有当组件是双击创建的空内容组件，且用户没有输入内容时才删除
   if (isEmptyCreated && props.element?.id && (!content || content.trim() === '')) {
-    console.log('双击创建的VText内容为空，删除组件');
-    // 使用正确的方法删除组件
+    console.log(
+      `%c[VText ${props.element?.id}] saveContent: Empty content on empty-created component, deleting.`,
+      'color: orange'
+    );
     canvasStore.deleteComponentById(props.element.id);
     return;
   }
-
-  // 重置标记
+  // 在成功保存后重置标志位
   isNewlyCreated = false;
   isEmptyCreated = false;
+  console.log(`[VText ${props.element?.id}] saveContent: Finished saving.`);
 };
 
 // 取消编辑
 const cancelEditing = () => {
-  isEditing.value = false;
+  console.log(
+    `%c[VText ${props.element?.id}] cancelEditing: Attempting to cancel. isEditing=${isEditing.value}, isNewlyCreated=${isNewlyCreated}`,
+    'color: red'
+  );
+  if (!isEditing.value) return; // 添加检查，防止重复执行
 
-  // 清除选择监听
+  // 确保所有事件监听器被正确移除
   document.removeEventListener('selectionchange', checkSelection);
 
-  // 获取编辑区域的内容
   const content = editRef.value ? editRef.value.innerHTML : '';
+  isEditing.value = false;
+  console.log(`[VText ${props.element?.id}] cancelEditing: Removing selectionchange listener.`);
 
-  // 只有当组件是双击创建的空内容组件，且用户没有输入内容时才删除
-  if (isEmptyCreated && props.element?.id && (!content || content.trim() === '')) {
-    console.log('双击创建的VText取消编辑且内容为空，删除组件');
-    // 使用正确的方法删除组件
-    canvasStore.deleteComponentById(props.element.id);
+  // 清除全局编辑状态
+  if (currentEditingTextId.value === props.element?.id) {
+    currentEditingTextId.value = null;
   }
 
-  // 重置标记
+  // 触发编辑结束事件
+  emit('editing-ended', props.element?.id);
+
+  // 重置弹窗位置
+  resetModalTransform();
+
+  // 处理空内容的组件
+  if ((isEmptyCreated || (isNewlyCreated && content.trim() === '')) && props.element?.id) {
+    console.log(
+      `%c[VText ${props.element?.id}] cancelEditing: Empty content on newly-created component, deleting.`,
+      'color: orange'
+    );
+    canvasStore.deleteComponentById(props.element.id);
+  }
+  // 在取消编辑后重置标志位
   isNewlyCreated = false;
   isEmptyCreated = false;
+  console.log(`[VText ${props.element?.id}] cancelEditing: Finished cancelling.`);
 };
 
 // 执行富文本命令
@@ -596,43 +960,6 @@ const setBackColor = async (event) => {
   //   console.warn('无法设置背景颜色：编辑区域引用无效。');
   // }
 };
-
-// 监听组件创建时的选中状态，如果是新创建且被选中的组件，自动进入编辑模式
-watch(
-  () => props.element?.id,
-  (newId, oldId) => {
-    if (newId && !oldId) {
-      console.log('新创建的VText组件:', props.element);
-      console.log('VText组件props:', props.element?.props);
-      console.log('主选中组件:', canvasStore.primarySelectedComponent);
-
-      isNewlyCreated = true; // 标记为新创建的组件
-
-      // 检查是否是双击创建的空内容VText
-      if (props.element?.props?.content === '') {
-        isEmptyCreated = true;
-      }
-
-      if (canvasStore.primarySelectedComponent?.id === newId) {
-        // 组件刚创建并被选中，立即进入编辑模式，不使用延迟
-        console.log('立即进入编辑模式');
-        startEditing();
-      }
-    }
-  },
-  { immediate: true }
-);
-
-// 监听失焦事件，确保编辑状态及时关闭
-watch(
-  () => canvasStore.primarySelectedComponent?.id,
-  (newId) => {
-    // 如果当前组件不再是主选中组件，并且正在编辑，则立即保存并退出编辑
-    if (isEditing.value && props.element?.id !== newId) {
-      saveContent();
-    }
-  }
-);
 </script>
 
 <style scoped>
@@ -686,6 +1013,8 @@ watch(
   align-items: center;
   backdrop-filter: blur(3px);
   pointer-events: all; /* 确保捕获所有指针事件 */
+  /* 确保模态框不受组件旋转影响 */
+  transform: none !important;
 }
 
 .editor-modal-content {
@@ -701,6 +1030,8 @@ watch(
   overflow: hidden;
   animation: modal-fade-in 0.2s ease-out;
   pointer-events: auto; /* 确保弹窗内容接收鼠标事件 */
+  /* 确保弹窗内容不受组件旋转影响 */
+  transform: none !important;
 }
 
 @keyframes modal-fade-in {
