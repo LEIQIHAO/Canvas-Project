@@ -1,65 +1,102 @@
 <template>
-  <div :style="circleStyle" class="circle-shape">
+  <div class="svg-circle-container">
+    <svg version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg" :viewBox="svgViewBox">
+      <ellipse
+        ref="ellipse"
+        :cx="centerX"
+        :cy="centerY"
+        :rx="radiusX"
+        :ry="radiusY"
+        :stroke="borderColor"
+        :stroke-width="borderWidth"
+        :fill="fillColor"
+      />
+    </svg>
     <!-- 圆形可以包含内容（如果有），使用 v-html 以支持 HTML 内容 -->
     <div v-if="propValue" class="circle-content" v-html="propValue" />
   </div>
 </template>
 
-<script setup>
-import { computed } from 'vue';
-
-// 定义组件的 props
-const props = defineProps({
-  // 圆形内部内容（HTML）
-  propValue: {
-    type: String,
-    default: '',
+<script>
+export default {
+  name: 'CircleShape',
+  props: {
+    // 圆形内部内容（HTML）
+    propValue: {
+      type: String,
+      default: '',
+    },
+    // 组件完整信息，用于获取样式
+    element: {
+      type: Object,
+      required: true,
+    },
   },
-  // 组件完整信息，用于获取样式
-  element: {
-    type: Object,
-    required: false,
+  computed: {
+    svgViewBox() {
+      const width = parseFloat(this.element.style.width) || 100;
+      const height = parseFloat(this.element.style.height) || 100;
+      return `0 0 ${width} ${height}`;
+    },
+    centerX() {
+      const width = parseFloat(this.element.style.width) || 100;
+      return width / 2;
+    },
+    centerY() {
+      const height = parseFloat(this.element.style.height) || 100;
+      return height / 2;
+    },
+    radiusX() {
+      const width = parseFloat(this.element.style.width) || 100;
+      // 减去边框宽度，避免椭圆被裁剪
+      const borderWidth = this.borderWidth;
+      return Math.max(width / 2 - borderWidth, 0);
+    },
+    radiusY() {
+      const height = parseFloat(this.element.style.height) || 100;
+      // 减去边框宽度，避免椭圆被裁剪
+      const borderWidth = this.borderWidth;
+      return Math.max(height / 2 - borderWidth, 0);
+    },
+    fillColor() {
+      // 从 style.backgroundColor 获取填充颜色
+      const fillColor = this.element.style.backgroundColor;
+      return fillColor && fillColor !== '' ? fillColor : 'transparent';
+    },
+    borderColor() {
+      return this.element.style.borderColor || 'black';
+    },
+    borderWidth() {
+      if (!this.element.style.borderWidth) return 1;
+      const width = parseFloat(this.element.style.borderWidth);
+      return isNaN(width) ? 1 : width;
+    },
   },
-});
-
-// 计算圆形样式
-const circleStyle = computed(() => {
-  // 获取完整样式对象，如果 element 存在
-  const style = props.element?.style || {};
-  // 返回圆形样式
-  return {
-    width: '100%',
-    height: '100%',
-    borderRadius: '50%', // 圆形关键样式
-    backgroundColor: style.backgroundColor || '',
-    borderWidth: style.borderWidth,
-    borderStyle: style.borderStyle || 'solid',
-    borderColor: style.borderColor || '#000',
-    fontSize: style.fontSize,
-    fontWeight: style.fontWeight,
-    lineHeight: style.lineHeight,
-    letterSpacing: style.letterSpacing,
-    textAlign: style.textAlign,
-    color: style.color,
-    display: props.propValue ? 'flex' : 'block', // 如果有内容，使用 flex 布局
-    justifyContent: 'center',
-    alignItems: 'center',
-  };
-});
+};
 </script>
 
 <style scoped>
-.circle-shape {
-  box-sizing: border-box;
+.svg-circle-container {
+  width: 100%;
+  height: 100%;
   position: relative;
 }
 
+.svg-circle-container svg {
+  width: 100%;
+  height: 100%;
+}
+
 .circle-content {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   user-select: none;
+  pointer-events: none;
 }
 </style>

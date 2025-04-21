@@ -34,37 +34,49 @@
 
     <!-- Resize Handles -->
     <div v-if="isPrimarySelection" class="resize-handles">
-      <!-- Standard Handles -->
+      <!-- Standard Handles - 针对直线组件只显示上下左右四个控制点 -->
       <div
+        v-if="component.key !== 'LineShape'"
         class="resize-handle top-left"
+        :style="{ cursor: getResizeHandleCursor('top-left') }"
         @mousedown.stop.prevent="emitResizeMouseDown('top-left', $event)"
       />
       <div
         class="resize-handle top-center"
+        :style="{ cursor: getResizeHandleCursor('top-center') }"
         @mousedown.stop.prevent="emitResizeMouseDown('top-center', $event)"
       />
       <div
+        v-if="component.key !== 'LineShape'"
         class="resize-handle top-right"
+        :style="{ cursor: getResizeHandleCursor('top-right') }"
         @mousedown.stop.prevent="emitResizeMouseDown('top-right', $event)"
       />
       <div
         class="resize-handle middle-left"
+        :style="{ cursor: getResizeHandleCursor('middle-left') }"
         @mousedown.stop.prevent="emitResizeMouseDown('middle-left', $event)"
       />
       <div
         class="resize-handle middle-right"
+        :style="{ cursor: getResizeHandleCursor('middle-right') }"
         @mousedown.stop.prevent="emitResizeMouseDown('middle-right', $event)"
       />
       <div
+        v-if="component.key !== 'LineShape'"
         class="resize-handle bottom-left"
+        :style="{ cursor: getResizeHandleCursor('bottom-left') }"
         @mousedown.stop.prevent="emitResizeMouseDown('bottom-left', $event)"
       />
       <div
         class="resize-handle bottom-center"
+        :style="{ cursor: getResizeHandleCursor('bottom-center') }"
         @mousedown.stop.prevent="emitResizeMouseDown('bottom-center', $event)"
       />
       <div
+        v-if="component.key !== 'LineShape'"
         class="resize-handle bottom-right"
+        :style="{ cursor: getResizeHandleCursor('bottom-right') }"
         @mousedown.stop.prevent="emitResizeMouseDown('bottom-right', $event)"
       />
       <!-- Rotation Handle -->
@@ -150,6 +162,56 @@ const actualComponentType = computed(() => {
   return type;
 });
 
+// 计算组件的旋转角度
+const rotationAngle = computed(() => {
+  const transformStyle = props.component.style?.transform || '';
+  const rotateMatch = transformStyle.match(/rotate\(([-+]?[0-9]*\.?[0-9]+)deg\)/);
+  return rotateMatch ? parseInt(rotateMatch[1], 10) : 0;
+});
+
+// 根据组件旋转角度和控制点方向返回光标样式类名
+const getResizeHandleCursor = (direction) => {
+  // 获取组件旋转角度
+  const componentAngle = rotationAngle.value || 0;
+
+  // 控制点基础角度
+  const directionAngles = {
+    'top-center': 0,
+    'top-right': 45,
+    'middle-right': 90,
+    'bottom-right': 135,
+    'bottom-center': 180,
+    'bottom-left': 225,
+    'middle-left': 270,
+    'top-left': 315,
+  };
+
+  // 如果不是有效方向，返回默认光标
+  if (!directionAngles[direction]) {
+    return 'default';
+  }
+
+  // 计算控制点旋转后的角度
+  let rotatedAngle = (directionAngles[direction] + componentAngle) % 360;
+  if (rotatedAngle < 0) rotatedAngle += 360;
+
+  // 根据旋转后的角度确定光标样式
+  // 每45度一个区间
+  const cursorTypes = [
+    'ns-resize', // 0度 - 上下
+    'nesw-resize', // 45度 - 右上-左下
+    'ew-resize', // 90度 - 左右
+    'nwse-resize', // 135度 - 左上-右下
+    'ns-resize', // 180度 - 上下
+    'nesw-resize', // 225度 - 右上-左下
+    'ew-resize', // 270度 - 左右
+    'nwse-resize', // 315度 - 左上-右下
+  ];
+
+  const index = Math.round(rotatedAngle / 45) % 8;
+  return cursorTypes[index];
+};
+
 // 调试用：监视组件变化
 watch(
   () => props.component,
@@ -227,6 +289,16 @@ const handleDoubleClick = (event) => {
   overflow: visible; /* Needed for handles to show outside bounds */
 }
 
+/* 特殊处理矩形组件，移除外部边框 */
+.canvas-component[data-component-key='RectShape'] {
+  border: none;
+}
+
+/* 添加圆形组件的处理，移除额外边框 */
+.canvas-component[data-component-key='CircleShape'] {
+  border: none !important;
+}
+
 .canvas-component.group {
   /* Groups might have a specific border or background when selected */
   border: 1px dashed transparent; /* Group border only shown when selected */
@@ -247,6 +319,18 @@ const handleDoubleClick = (event) => {
   /* Keep border transparent for non-SVGs, border none for SVGs handles the rest */
   border: 1px solid transparent;
   z-index: 100 !important; /* Bring selected to front visually (adjust zIndex if needed) */
+}
+
+/* 矩形组件被选中时也不显示外部边框 */
+.canvas-component.selected[data-component-key='RectShape'] {
+  outline: none;
+  border: none;
+}
+
+/* 对圆形组件也移除选中时的外部边框 */
+.canvas-component.selected[data-component-key='CircleShape'] {
+  outline: none;
+  border: none;
 }
 
 /* Special case for SVGs: ensure outline is also removed when selected */
@@ -281,46 +365,38 @@ const handleDoubleClick = (event) => {
 .resize-handle.top-left {
   top: -4px;
   left: -4px;
-  cursor: nwse-resize;
 }
 .resize-handle.top-center {
   top: -4px;
   left: 50%;
   transform: translateX(-50%);
-  cursor: ns-resize;
 }
 .resize-handle.top-right {
   top: -4px;
   right: -4px;
-  cursor: nesw-resize;
 }
 .resize-handle.middle-left {
   top: 50%;
   left: -4px;
   transform: translateY(-50%);
-  cursor: ew-resize;
 }
 .resize-handle.middle-right {
   top: 50%;
   right: -4px;
   transform: translateY(-50%);
-  cursor: ew-resize;
 }
 .resize-handle.bottom-left {
   bottom: -4px;
   left: -4px;
-  cursor: nesw-resize;
 }
 .resize-handle.bottom-center {
   bottom: -4px;
   left: 50%;
   transform: translateX(-50%);
-  cursor: ns-resize;
 }
 .resize-handle.bottom-right {
   bottom: -4px;
   right: -4px;
-  cursor: nwse-resize;
 }
 
 /* Rotation Handle */
@@ -359,5 +435,10 @@ const handleDoubleClick = (event) => {
   display: block; /* Or flex, depending on component type */
   box-sizing: border-box;
   pointer-events: none; /* Should not interfere with wrapper's events */
+}
+
+/* 蓝色控制点样式 */
+.resize-handle.blue-handle {
+  background-color: #409eff;
 }
 </style>

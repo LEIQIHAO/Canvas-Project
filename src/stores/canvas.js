@@ -39,6 +39,67 @@ const getBoundingBox = (components) => {
   };
 };
 
+// 在现有代码中添加一个确保尺寸和位置为整数的工具函数
+const ensureIntegerDimensions = (style) => {
+  // 需要处理的属性列表
+  const dimensionProps = ['width', 'height'];
+  const positionProps = ['left', 'top'];
+
+  // 创建新的样式对象
+  const newStyle = { ...style };
+
+  // 处理宽度和高度，始终四舍五入为整数
+  dimensionProps.forEach((prop) => {
+    if (newStyle[prop] !== undefined) {
+      // 提取数值部分
+      const value = parseFloat(newStyle[prop]);
+      if (!isNaN(value)) {
+        // 四舍五入为整数
+        const roundedValue = Math.round(value);
+        // 保留原始单位（如px）
+        const unit = String(newStyle[prop]).replace(/^[0-9.-]+/, '') || 'px';
+        newStyle[prop] = `${roundedValue}${unit}`;
+      }
+    }
+  });
+
+  // 处理位置，需要考虑保持中心点不变
+  // 由于宽度和高度的变化可能影响中心点，这里需要相应调整位置
+  if (
+    (newStyle.width !== style.width || newStyle.height !== style.height) &&
+    (newStyle.left !== undefined || newStyle.top !== undefined)
+  ) {
+    // 宽度差异
+    const widthDiff = parseFloat(newStyle.width) - parseFloat(style.width);
+    // 高度差异
+    const heightDiff = parseFloat(newStyle.height) - parseFloat(style.height);
+
+    // 调整left位置，使中心点X坐标保持不变
+    if (newStyle.left !== undefined && widthDiff !== 0) {
+      const left = parseFloat(newStyle.left);
+      if (!isNaN(left)) {
+        // 为了保持中心点不变，需要减去宽度变化的一半
+        const adjustedLeft = left - widthDiff / 2;
+        const unit = String(newStyle.left).replace(/^[0-9.-]+/, '') || 'px';
+        newStyle.left = `${adjustedLeft}${unit}`;
+      }
+    }
+
+    // 调整top位置，使中心点Y坐标保持不变
+    if (newStyle.top !== undefined && heightDiff !== 0) {
+      const top = parseFloat(newStyle.top);
+      if (!isNaN(top)) {
+        // 为了保持中心点不变，需要减去高度变化的一半
+        const adjustedTop = top - heightDiff / 2;
+        const unit = String(newStyle.top).replace(/^[0-9.-]+/, '') || 'px';
+        newStyle.top = `${adjustedTop}${unit}`;
+      }
+    }
+  }
+
+  return newStyle;
+};
+
 export const useCanvasStore = defineStore(
   'canvas',
   () => {
@@ -435,6 +496,9 @@ export const useCanvasStore = defineStore(
         }
       }
 
+      // 应用整数化处理
+      newComponent.style = ensureIntegerDimensions(newComponent.style);
+
       // 添加组件到画布
       console.log(
         '5. 最终添加到画布的 newComponent.style:',
@@ -529,12 +593,15 @@ export const useCanvasStore = defineStore(
       // 应用深度合并
       const mergedStyle = deepMergeStyle({ ...component.style }, newStyle);
 
+      // 使用整数化处理
+      const integerStyle = ensureIntegerDimensions(mergedStyle);
+
       // 更新组件状态数组
       const newState = [...current];
       // 使用包含合并后样式的新组件对象替换旧对象
-      newState[componentIndex] = { ...component, style: mergedStyle };
+      newState[componentIndex] = { ...component, style: integerStyle };
 
-      console.log('更新后的组件style:', JSON.parse(JSON.stringify(mergedStyle))); // Log merged style
+      console.log('更新后的组件style:', JSON.parse(JSON.stringify(integerStyle))); // Log merged style
 
       // 调用内部函数来更新 components.value 并处理历史记录
       updateComponents(newState);
@@ -572,8 +639,11 @@ export const useCanvasStore = defineStore(
         // 应用深度合并
         const mergedStyle = deepMergeStyle({ ...component.style }, styleChanges);
 
+        // 使用整数化处理
+        const integerStyle = ensureIntegerDimensions(mergedStyle);
+
         // 存储更新后的组件
-        updatedComponents.set(componentIndex, { ...component, style: mergedStyle });
+        updatedComponents.set(componentIndex, { ...component, style: integerStyle });
       });
 
       // 创建新的组件状态
@@ -587,10 +657,34 @@ export const useCanvasStore = defineStore(
 
     // Action: Commit a state change explicitly (e.g., after move/resize)
     const commitCanvasChange = (finalComponentsState) => {
-      console.log('Action: commitCanvasChange');
-      // This action assumes finalComponentsState is the desired new state
-      // It directly updates components, and the watcher handles history.
-      updateComponents(finalComponentsState);
+      console.log('提交最终的画布状态:', finalComponentsState);
+
+      // 确保所有组件都使用整数尺寸
+      if (finalComponentsState && Array.isArray(finalComponentsState)) {
+        finalComponentsState.forEach((component) => {
+          if (component.style) {
+            component.style = ensureIntegerDimensions(component.style);
+          }
+
+          // 如果是组合组件，也处理其子组件
+          if (
+            component.key === 'group' &&
+            component.children &&
+            Array.isArray(component.children)
+          ) {
+            component.children.forEach((child) => {
+              if (child.style) {
+                child.style = ensureIntegerDimensions(child.style);
+              }
+            });
+          }
+        });
+      }
+
+      // 更新画布组件
+      components.value = finalComponentsState;
+      // 记录历史状态
+      recordHistory();
     };
 
     const clearCanvas = () => {

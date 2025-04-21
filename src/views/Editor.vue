@@ -45,7 +45,7 @@
             </el-button>
             <el-divider direction="vertical" />
             <!-- 缩放控制 -->
-            <el-button-group>
+            <el-button-group class="zoom-controls">
               <el-button size="small" @click="zoomOut">
                 <el-icon><Minus /></el-icon>
               </el-button>
@@ -471,7 +471,7 @@ const materials = ref([
     icon: IconMinus,
     propValue: '',
     // 与 visual-drag-demo/component-list.js 对齐 (已匹配)
-    style: { width: 150, height: 5, backgroundColor: '#000' },
+    style: { width: 150, height: 1, backgroundColor: '#000' },
   },
   {
     component: 'CircleShape',
@@ -1163,6 +1163,16 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
   const initialBounds = getComponentBounds(component);
   if (!initialBounds) return;
 
+  // 获取当前旋转角度
+  const transformMatch = component.style.transform?.match(/rotate\(([-+]?[0-9]*\.?[0-9]+)deg\)/);
+  const rotation = transformMatch ? parseFloat(transformMatch[1]) : 0;
+  // 将角度转换为弧度
+  const rotationRad = (rotation * Math.PI) / 180;
+
+  // 获取组件中心点
+  const centerX = initialBounds.left + initialBounds.width / 2;
+  const centerY = initialBounds.top + initialBounds.height / 2;
+
   // Store original children info if resizing a group
   const originalChildren =
     component.key === 'group' ? JSON.parse(JSON.stringify(component.children || [])) : null;
@@ -1175,32 +1185,157 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
   }));
 
   const handleResizeMouseMove = (moveEvent) => {
-    const deltaX = (moveEvent.clientX - startX) / scale.value;
-    const deltaY = (moveEvent.clientY - startY) / scale.value;
-    let newLeft = initialBounds.left;
-    let newTop = initialBounds.top;
+    // 获取鼠标移动距离（基于屏幕坐标系）
+    const currentX = moveEvent.clientX;
+    const currentY = moveEvent.clientY;
+
+    // 使用屏幕上的实际位置计算
+    const mouseDeltaX = (currentX - startX) / scale.value;
+    const mouseDeltaY = (currentY - startY) / scale.value;
+
+    // 获取旋转相关计算值
+    const cosTheta = Math.cos(rotationRad);
+    const sinTheta = Math.sin(rotationRad);
+
+    // 计算组件的中心点
+    const componentCenterX = initialBounds.left + initialBounds.width / 2;
+    const componentCenterY = initialBounds.top + initialBounds.height / 2;
+
+    // 根据缩放手柄的方向进行不同的处理
     let newWidth = initialBounds.width;
     let newHeight = initialBounds.height;
+    let newLeft = initialBounds.left;
+    let newTop = initialBounds.top;
 
-    // Calculate preliminary new dimensions
-    if (direction.includes('right')) {
-      newWidth = Math.max(10, initialBounds.width + deltaX);
-    }
-    if (direction.includes('bottom')) {
-      newHeight = Math.max(10, initialBounds.height + deltaY);
-    }
-    if (direction.includes('left')) {
-      const preliminaryWidth = Math.max(10, initialBounds.width - deltaX);
-      newLeft = initialBounds.left + initialBounds.width - preliminaryWidth;
-      newWidth = preliminaryWidth;
-    }
-    if (direction.includes('top')) {
-      const preliminaryHeight = Math.max(10, initialBounds.height - deltaY);
-      newTop = initialBounds.top + initialBounds.height - preliminaryHeight;
-      newHeight = preliminaryHeight;
+    // 最小尺寸限制
+    const minWidth = 5; // 从10px改为5px
+    const minHeight = component.key === 'LineShape' ? 1 : 5; // 非直线组件从10px改为5px
+
+    if (direction === 'top-center') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaY = -mouseDeltaX * sinTheta + mouseDeltaY * cosTheta;
+
+      // 在旋转坐标系中，根据垂直方向的变化调整高度
+      const newH = Math.max(minHeight, initialBounds.height - rotatedDeltaY);
+      newHeight = newH;
+
+      // 计算高度变化，保持底边固定
+      const heightChange = initialBounds.height - newH;
+
+      // 新位置计算，保持底边固定
+      newLeft = initialBounds.left + heightChange * sinTheta;
+      newTop = initialBounds.top - heightChange * cosTheta;
+    } else if (direction === 'bottom-center') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaY = -mouseDeltaX * sinTheta + mouseDeltaY * cosTheta;
+
+      // 在旋转坐标系中，根据垂直方向的变化调整高度
+      const newH = Math.max(minHeight, initialBounds.height + rotatedDeltaY);
+      newHeight = newH;
+
+      // 保持顶边固定，不需要调整位置
+      newLeft = initialBounds.left;
+      newTop = initialBounds.top;
+    } else if (direction === 'middle-left') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaX = mouseDeltaX * cosTheta + mouseDeltaY * sinTheta;
+
+      // 在旋转坐标系中，根据水平方向的变化调整宽度
+      const newW = Math.max(minWidth, initialBounds.width - rotatedDeltaX);
+      newWidth = newW;
+
+      // 计算宽度变化，保持右边固定
+      const widthChange = initialBounds.width - newW;
+
+      // 新位置，保持右边固定
+      newLeft = initialBounds.left + widthChange * cosTheta;
+      newTop = initialBounds.top + widthChange * sinTheta;
+    } else if (direction === 'middle-right') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaX = mouseDeltaX * cosTheta + mouseDeltaY * sinTheta;
+
+      // 在旋转坐标系中，根据水平方向的变化调整宽度
+      const newW = Math.max(minWidth, initialBounds.width + rotatedDeltaX);
+      newWidth = newW;
+
+      // 保持左边固定，不需要调整位置
+      newLeft = initialBounds.left;
+      newTop = initialBounds.top;
+    } else if (direction === 'top-left') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaX = mouseDeltaX * cosTheta + mouseDeltaY * sinTheta;
+      const rotatedDeltaY = -mouseDeltaX * sinTheta + mouseDeltaY * cosTheta;
+
+      // 在旋转坐标系中，根据两个方向的变化同时调整宽度和高度
+      const newW = Math.max(minWidth, initialBounds.width - rotatedDeltaX);
+      const newH = Math.max(minHeight, initialBounds.height - rotatedDeltaY);
+      newWidth = newW;
+      newHeight = newH;
+
+      // 计算位置变化，保持右下角固定
+      const widthChange = initialBounds.width - newW;
+      const heightChange = initialBounds.height - newH;
+
+      // 新位置，保持右下角固定
+      newLeft = initialBounds.left + widthChange * cosTheta + heightChange * sinTheta;
+      newTop = initialBounds.top + widthChange * sinTheta - heightChange * cosTheta;
+    } else if (direction === 'top-right') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaX = mouseDeltaX * cosTheta + mouseDeltaY * sinTheta;
+      const rotatedDeltaY = -mouseDeltaX * sinTheta + mouseDeltaY * cosTheta;
+
+      // 在旋转坐标系中，根据两个方向的变化同时调整宽度和高度
+      const newW = Math.max(minWidth, initialBounds.width + rotatedDeltaX);
+      const newH = Math.max(minHeight, initialBounds.height - rotatedDeltaY);
+      newWidth = newW;
+      newHeight = newH;
+
+      // 计算位置变化，保持左下角固定
+      const widthChange = newW - initialBounds.width;
+      const heightChange = initialBounds.height - newH;
+
+      // 综合考虑宽度和高度变化对位置的影响
+      newLeft = initialBounds.left + (heightChange * sinTheta - widthChange * cosTheta) / 2;
+      newTop = initialBounds.top + (-heightChange * cosTheta - widthChange * sinTheta) / 2;
+    } else if (direction === 'bottom-left') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaX = mouseDeltaX * cosTheta + mouseDeltaY * sinTheta;
+      const rotatedDeltaY = -mouseDeltaX * sinTheta + mouseDeltaY * cosTheta;
+
+      // 在旋转坐标系中，根据两个方向的变化同时调整宽度和高度
+      const newW = Math.max(minWidth, initialBounds.width - rotatedDeltaX);
+      const newH = Math.max(minHeight, initialBounds.height + rotatedDeltaY);
+      newWidth = newW;
+      newHeight = newH;
+
+      // 计算位置变化，保持右上角固定
+      const widthChange = initialBounds.width - newW;
+      const heightChange = newH - initialBounds.height;
+
+      // 综合考虑宽度和高度变化对位置的影响
+      newLeft = initialBounds.left + (widthChange * cosTheta - heightChange * sinTheta) / 2;
+      newTop = initialBounds.top + (widthChange * sinTheta + heightChange * cosTheta) / 2;
+    } else if (direction === 'bottom-right') {
+      // 将鼠标的移动转换到组件旋转后的坐标系
+      const rotatedDeltaX = mouseDeltaX * cosTheta + mouseDeltaY * sinTheta;
+      const rotatedDeltaY = -mouseDeltaX * sinTheta + mouseDeltaY * cosTheta;
+
+      // 在旋转坐标系中，根据两个方向的变化同时调整宽度和高度
+      const newW = Math.max(minWidth, initialBounds.width + rotatedDeltaX);
+      const newH = Math.max(minHeight, initialBounds.height + rotatedDeltaY);
+      newWidth = newW;
+      newHeight = newH;
+
+      // 计算位置变化，保持左上角固定
+      const widthChange = newW - initialBounds.width;
+      const heightChange = newH - initialBounds.height;
+
+      // 综合考虑宽度和高度变化对位置的影响
+      newLeft = initialBounds.left - (widthChange * cosTheta + heightChange * sinTheta) / 2;
+      newTop = initialBounds.top - (widthChange * sinTheta - heightChange * cosTheta) / 2;
     }
 
-    // Calculate bounds for alignment check
+    // 计算旋转后的边界框用于对齐线
     const currentBounds = {
       id: component.id,
       left: newLeft,
@@ -1212,17 +1347,26 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
       width: newWidth,
       height: newHeight,
     };
-    calculateAlignmentLines(currentBounds); // Only show lines for now
 
-    // Update LIVE preview style directly
+    calculateAlignmentLines(currentBounds);
+
+    // 更新组件样式
     const targetComponent = canvasStore.components.find((c) => c.id === component.id);
     if (targetComponent) {
+      // 将宽度和高度四舍五入为整数
+      const roundedWidth = Math.round(newWidth);
+      const roundedHeight = Math.round(newHeight);
+
+      // 调整后的位置，保持中心点不变
+      const adjustedLeft = newLeft + (newWidth - roundedWidth) / 2;
+      const adjustedTop = newTop + (newHeight - roundedHeight) / 2;
+
       targetComponent.style = {
-        ...targetComponent.style, // Keep existing non-resized styles
-        width: `${newWidth}px`,
-        height: `${newHeight}px`,
-        left: `${newLeft}px`,
-        top: `${newTop}px`,
+        ...targetComponent.style,
+        width: `${roundedWidth}px`,
+        height: `${roundedHeight}px`,
+        left: `${adjustedLeft}px`,
+        top: `${adjustedTop}px`,
       };
     }
   };
@@ -1232,6 +1376,36 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
     document.removeEventListener('mouseup', handleResizeMouseUp);
     alignmentLines.value = [];
     console.log('Resize end - committing change');
+
+    // 最终确保所有组件尺寸为整数值
+    const targetComponent = canvasStore.components.find((c) => c.id === component.id);
+    if (targetComponent) {
+      // 获取当前样式值
+      const currentWidth = parseFloat(targetComponent.style.width);
+      const currentHeight = parseFloat(targetComponent.style.height);
+      const currentLeft = parseFloat(targetComponent.style.left);
+      const currentTop = parseFloat(targetComponent.style.top);
+
+      // 将宽度和高度四舍五入为整数
+      const roundedWidth = Math.round(currentWidth);
+      const roundedHeight = Math.round(currentHeight);
+
+      // 只在值不是整数时才进行调整
+      if (roundedWidth !== currentWidth || roundedHeight !== currentHeight) {
+        // 调整位置，保持中心点不变
+        const adjustedLeft = currentLeft + (currentWidth - roundedWidth) / 2;
+        const adjustedTop = currentTop + (currentHeight - roundedHeight) / 2;
+
+        // 更新样式
+        targetComponent.style = {
+          ...targetComponent.style,
+          width: `${roundedWidth}px`,
+          height: `${roundedHeight}px`,
+          left: `${adjustedLeft}px`,
+          top: `${adjustedTop}px`,
+        };
+      }
+    }
 
     // Get the final state from the components array
     const finalComponentsState = JSON.parse(JSON.stringify(canvasStore.components));
@@ -1292,7 +1466,20 @@ const handlePreview = () => {
 
 const handleSave = () => {
   try {
-    const dataToSave = JSON.stringify(canvasStore.components);
+    // 获取画笔画布的数据
+    let paintCanvasData = null;
+    if (paintCanvas.value) {
+      paintCanvasData = paintCanvas.value.toDataURL('image/png');
+    }
+
+    // 创建包含组件和画笔数据的对象
+    const completeCanvasData = {
+      components: canvasStore.components,
+      paintCanvasData: paintCanvasData,
+    };
+
+    // 保存到本地存储
+    const dataToSave = JSON.stringify(completeCanvasData);
     localStorage.setItem('canvasData', dataToSave);
     ElMessage.success('画布数据已保存到 localStorage');
   } catch (error) {
@@ -1311,8 +1498,36 @@ const handleLoad = () => {
       try {
         const savedData = localStorage.getItem('canvasData');
         if (savedData) {
-          const componentsToLoad = JSON.parse(savedData);
-          canvasStore.setCanvasComponents(componentsToLoad);
+          const loadedData = JSON.parse(savedData);
+
+          // 加载组件数据
+          if (loadedData.components) {
+            canvasStore.setCanvasComponents(loadedData.components);
+          } else if (Array.isArray(loadedData)) {
+            // 向后兼容，支持老版本的存储格式
+            canvasStore.setCanvasComponents(loadedData);
+          }
+
+          // 加载画笔数据
+          if (loadedData.paintCanvasData && paintCanvas.value) {
+            // 确保画布已经初始化
+            nextTick(() => {
+              // 先初始化画布
+              if (!paintCtx.value) {
+                paintCtx.value = paintCanvas.value.getContext('2d');
+                updatePaintContext();
+              }
+
+              // 使用图片恢复画布内容
+              const img = new Image();
+              img.onload = () => {
+                paintCtx.value.clearRect(0, 0, paintCanvas.value.width, paintCanvas.value.height);
+                paintCtx.value.drawImage(img, 0, 0);
+              };
+              img.src = loadedData.paintCanvasData;
+            });
+          }
+
           ElMessage.success('画布数据已从 localStorage 加载');
         } else {
           ElMessage.warning('未找到保存的画布数据');
@@ -2449,22 +2664,32 @@ provide('clearPaintCanvas', clearPaintCanvas);
   align-items: center;
   padding: 10px 20px;
   height: 60px;
+  overflow-x: auto; /* 添加水平滚动 */
 }
 
 .header-left,
-.header-right,
 .header-center {
   display: flex;
   align-items: center;
+  flex-shrink: 0; /* 防止挤压 */
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap; /* 防止按钮换行 */
+  white-space: nowrap; /* 防止按钮内容换行 */
 }
 
 .header-center {
   flex: 1;
   justify-content: center;
+  margin: 0 20px; /* 增加两侧间距 */
 }
 
 .header-right .el-button {
   margin-left: 5px;
+  flex-shrink: 0; /* 防止按钮缩小 */
 }
 
 /* 主内容区域样式 */
@@ -2862,5 +3087,17 @@ provide('clearPaintCanvas', clearPaintCanvas);
 .brush-size-slider {
   width: 100px;
   margin: 0 8px;
+}
+
+/* 缩放控制样式 */
+.zoom-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.zoom-controls .el-button {
+  flex-shrink: 0;
+  margin: 0 !important;
 }
 </style>
