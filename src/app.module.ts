@@ -22,7 +22,7 @@ import { TaskService } from './task.service';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'mysql',
-        host: configService.get<string>('DB_HOST', 'localhost'),
+        host: configService.get<string>('DB_HOST', '121.37.219.159'),
         port: configService.get<number>('DB_PORT', 3306),
         username: configService.get<string>('DB_USERNAME', 'root'),
         password: configService.get<string>('DB_PASSWORD', 'book-v123'),
