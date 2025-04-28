@@ -158,45 +158,58 @@ export const useCanvasStore = defineStore('canvas', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await canvasService.getCanvas(id); // Assuming this returns { data: { canvas: {...}, components: [...] } }
+      const response = await canvasService.getCanvas(id);
       if (response && response.data) {
-        const canvasData = response.data; // This should be { canvas: {...}, components: [...] }
+        const canvasData = response.data;
 
-        // --- Validate the new structure ---
-        if (!canvasData.canvas || !canvasData.components || !Array.isArray(canvasData.components)) {
-          console.error('Loaded data structure is invalid:', canvasData);
-          throw new Error('Invalid canvas data structure received from server.');
+        // --- More Lenient Validation ---
+        // Only check if the main data and content object exist.
+        if (!canvasData.content) {
+          console.error('Loaded data structure is invalid (missing content object):', canvasData);
+          // Keep throwing error if content itself is missing, as that's fundamental
+          throw new Error('Invalid canvas data structure received from server (missing content).');
         }
-        // ---------------------------------
+        // --- Validation End ---
 
-        // *** Update state CORRECTLY using the new structure ***
-        components.value = JSON.parse(JSON.stringify(canvasData.components)); // Update components (deep copy)
+        // *** Update state CORRECTLY, handling potentially empty/missing components AND canvas metadata ***
+
+        // Get components, default to empty array
+        const newComponents = canvasData.content.components || [];
+        components.value = JSON.parse(JSON.stringify(newComponents));
+
+        // Get canvas metadata, provide defaults if missing
+        const canvasMetadata = canvasData.content.canvas || {
+          width: 1200, // Default width
+          height: 800, // Default height
+          scale: 1, // Default scale
+        };
+
         selectedComponentIds.value = []; // RESET selection IDs
         primarySelectedComponent.value = null; // RESET primary selection
 
-        // Store metadata (simplified, assuming ID and Title are top-level or within canvasData.canvas)
+        // Store metadata (Get ID and Title from top level)
         currentCanvasMeta.value = {
-          id: canvasData.id || canvasData.canvas?.id, // Get ID
-          title: canvasData.title || canvasData.canvas?.title, // Get Title
+          id: canvasData.id,
+          title: canvasData.title,
           // Add other relevant metadata fields if needed
         };
 
-        // Reset history for the new canvas
+        // Reset history using the *newly updated* components.value
         history.value = [JSON.parse(JSON.stringify(components.value))];
         historyIndex.value = 0;
 
-        // --- Return the canvas metadata object ---
-        return canvasData.canvas;
-        // -----------------------------------------
+        // --- Return the canvas metadata object (potentially with defaults) ---
+        return canvasMetadata; // Return the determined canvas metadata
+        // ---------------------------------------------------------------------
       } else {
-        // Handle invalid API response structure
+        // Handle invalid API response structure (missing data)
         console.error('Invalid API response structure (missing data): ', response);
         throw new Error('Invalid API response structure');
       }
     } catch (err) {
       // Handle fetch error
       console.error('获取画布详情失败:', err);
-      // Clear state
+      // Clear state on error
       components.value = [];
       selectedComponentIds.value = [];
       primarySelectedComponent.value = null;

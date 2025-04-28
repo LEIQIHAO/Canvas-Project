@@ -217,11 +217,6 @@ const openCanvas = async (canvas) => {
     // 跳转到编辑器
     await router.push({
       path: `/editor/${canvas.id}`,
-      query: {
-        title: canvasData.title,
-        width: canvasData.width,
-        height: canvasData.height,
-      },
     });
   } catch (error) {
     console.error('加载画布失败:', error);

@@ -76,7 +76,7 @@
             <!-- Separator -->
             <el-button type="primary" size="small" @click="handlePreview"> 预览 </el-button>
             <el-button size="small" @click="handleSave"> 保存 </el-button>
-            <el-button size="small" @click="handleLoad"> 加载 </el-button>
+            <!-- <el-button size="small" @click="handleLoad"> 加载 </el-button> -->
             <el-button type="danger" size="small" @click="handleClear"> 清空 </el-button>
             <el-button
               type="danger"
@@ -2080,47 +2080,82 @@ const goBackToList = () => {
 
 // --- 加载画布数据 ---
 const loadCanvasData = async () => {
+  console.log('--- loadCanvasData triggered ---'); // 添加日志确认执行
   const canvasId = route.params.id;
   if (!canvasId) {
     ElMessage.error('无法加载画布：缺少画布 ID');
     console.error('Canvas ID is missing from route params');
+    // 考虑导航回列表页或显示错误状态
+    // router.push('/canvas');
     return;
   }
 
   console.log(`尝试加载画布 ID: ${canvasId}`);
   try {
-    // --- 使用 Store Action ---
-    const canvasMetadata = await canvasStore.fetchCanvas(canvasId); // Fetch data and update store state
-    // -----------------------
+    const canvasMetadata = await canvasStore.fetchCanvas(canvasId);
 
-    // --- 使用返回的元数据更新本地状态 ---
     if (canvasMetadata) {
       canvasWidth.value = canvasMetadata.width || 1200;
       canvasHeight.value = canvasMetadata.height || 800;
       scale.value = canvasMetadata.scale || 1;
       await nextTick();
       updateCanvasSize();
-
-      // Update page title (optional)
-      // if (canvasStore.currentCanvasMeta?.title) { ... }
-
-      ElMessage.success('画布加载成功');
+      ElMessage.success(`画布 '${canvasStore.currentCanvasMeta?.title || canvasId}' 加载成功`);
     } else {
-      // fetchCanvas action should throw an error if loading fails significantly
-      // This else block might not be strictly necessary if errors are always thrown
       console.warn('fetchCanvas did not return expected metadata.');
-      // Handle case where metadata might be missing but components loaded? (Depends on store logic)
+      // 也许显示一个错误消息或状态
     }
-    // -----------------------------------------
-
-    // Removed manual component setting, store action handles it.
-    // Removed manual history reset, store action handles it.
   } catch (error) {
-    console.error('加载画布数据失败(Editor.vue):', error);
-    // Error message should be handled/thrown by the store action
-    // ElMessage.error('加载画布数据失败...');
+    console.error(`加载画布数据失败 (Editor.vue, ID: ${canvasId}):`, error);
+    // ElMessage.error('加载画布数据失败...'); // Store action 可能已处理
+    // 考虑显示一个错误状态或导航离开
   }
 };
+
+// --- 新增：监听路由 ID 变化 ---
+watch(
+  () => route.params.id, // 监听 ID 参数
+  (newId, oldId) => {
+    // 只有当 newId 有效且与 oldId 不同时才重新加载
+    // oldId 在第一次运行时为 undefined
+    if (newId && newId !== oldId) {
+      console.log(`画布 ID 从 ${oldId} 变为 ${newId}，重新加载数据...`);
+      loadCanvasData();
+    } else if (newId && oldId === undefined) {
+      // 处理初始加载（如果 immediate: true）
+      console.log(`初始加载画布 ID: ${newId}`);
+      // loadCanvasData(); // 如果 immediate: true, 第一次加载会在这里触发
+    }
+  },
+  { immediate: true } // immediate: true 确保在组件初始设置时也运行一次 watcher
+);
+// -----------------------------
+
+onMounted(() => {
+  // ... 其他 onMounted 逻辑 ...
+
+  // 如果 watcher 设置了 immediate: true, 下面这行可能就不再需要了，
+  // 因为 watcher 会在初始时自动调用一次 loadCanvasData。
+  // 如果没有设置 immediate: true，则保留这行用于初始加载。
+  // loadCanvasData(); // <--- 检查是否需要保留
+
+  document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('keyup', handleKeyUp);
+  nextTick(() => {
+    // 确保初始尺寸和缩放正确应用（可能在 loadCanvasData 之后）
+    if (isNaN(scale.value)) scale.value = 1; // 再次确保 scale 有值
+    updateCanvasSize();
+  });
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown);
+  document.removeEventListener('keyup', handleKeyUp);
+  // 可选：离开编辑器时清理 store 中的当前画布状态？
+  // canvasStore.clearCurrentCanvasState(); // 需要在 store 中实现此方法
+});
+
+// ... 组件的其余部分 ...
 </script>
 
 <style scoped>
