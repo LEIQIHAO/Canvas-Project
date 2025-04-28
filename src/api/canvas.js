@@ -8,11 +8,11 @@ import { authService } from './auth'; // Import auth service for re-login
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: 'http://localhost:5001/canvas',
+  baseURL: 'http://121.37.219.159:5001/canvas',
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // 允许跨域请求携带cookie
+  // withCredentials: true, // 允许跨域请求携带cookie
   timeout: 10000, // 设置超时时间
 });
 

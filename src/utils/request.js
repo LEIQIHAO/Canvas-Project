@@ -3,13 +3,13 @@ import { ElMessage } from 'element-plus';
 
 // 创建 axios 实例
 const service = axios.create({
-  baseURL: 'http://localhost:5001/',
+  baseURL: 'http://121.37.219.159:5001/',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json;charset=utf-8',
     'X-Requested-With': 'XMLHttpRequest',
   },
-  withCredentials: true,
+  // withCredentials: true,
 });
 
 // 检查API基础URL

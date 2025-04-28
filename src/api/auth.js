@@ -1,5 +1,6 @@
 import request from '@/utils/request';
 import { encrypt } from '@/utils/crypto';
+import { ElMessage as message } from 'element-plus';
 
 const API_URL = '/auth';
 
@@ -9,18 +10,21 @@ export const authService = {
     try {
       // 验证输入
       if (!userData.username || !userData.email || !userData.password) {
-        throw new Error('请填写所有必填字段');
+        message.error('请填写所有必填字段');
+        return;
       }
 
       // 验证邮箱格式
       const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
       if (!emailRegex.test(userData.email)) {
-        throw new Error('请输入有效的邮箱地址');
+        message.error('请输入有效的邮箱地址');
+        return;
       }
 
       // 验证密码长度
       if (userData.password.length < 6) {
-        throw new Error('密码至少需要6个字符');
+        message.error('密码至少需要6个字符');
+        return;
       }
 
       // 加密敏感信息
@@ -50,6 +54,7 @@ export const authService = {
       return response;
     } catch (error) {
       console.error('注册失败:', error);
+      message.error(`注册失败: ${error.message || '请稍后重试'}`);
       throw error;
     }
   },
@@ -59,13 +64,15 @@ export const authService = {
     try {
       // 验证输入
       if (!credentials.email || !credentials.password) {
-        throw new Error('请填写邮箱和密码');
+        message.error('请填写邮箱和密码');
+        return;
       }
 
       // 验证邮箱格式
       const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
       if (!emailRegex.test(credentials.email)) {
-        throw new Error('请输入有效的邮箱地址');
+        message.error('请输入有效的邮箱地址');
+        return;
       }
 
       // 加密密码
@@ -95,6 +102,7 @@ export const authService = {
       return response.data;
     } catch (error) {
       console.error('登录失败:', error);
+      message.error(`登录失败: ${error.message || '请检查邮箱或密码'}`);
       throw error;
     }
   },
@@ -106,6 +114,7 @@ export const authService = {
       console.log('登出成功');
     } catch (error) {
       console.error('登出失败:', error);
+      message.error(`登出失败: ${error.message || '请稍后重试'}`);
       throw error;
     }
   },
