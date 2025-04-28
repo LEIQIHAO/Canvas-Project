@@ -9,7 +9,6 @@ import fs from 'node:fs';
 
 const pathSrc = path.resolve(__dirname, 'src');
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
@@ -35,7 +34,6 @@ export default defineConfig({
       less: {
         javascriptEnabled: true,
         globalVars: {
-          // 颜色变量
           'primary-color': '#42b883',
           'primary-color-light': '#63c295',
           'primary-color-dark': '#369e6c',
@@ -51,8 +49,6 @@ export default defineConfig({
           'warning-color': '#e6a23c',
           'error-color': '#f56c6c',
           'info-color': '#909399',
-
-          // 尺寸变量
           'font-size-small': '12px',
           'font-size-base': '14px',
           'font-size-medium': '16px',
@@ -82,14 +78,31 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: true,
-    cors: true,
     proxy: {
-      // 配置代理
       '/api': {
-        target: 'http://localhost:8080', // 后端服务器地址
+        target: 'http://localhost:5001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: false,
+        ws: true,
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ['crypto-js'],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/crypto-js/],
+    },
+    minify: 'terser',
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ['vue', 'vue-router', 'pinia'],
+          elementPlus: ['element-plus', '@element-plus/icons-vue'],
+          utils: ['axios', 'dayjs', 'crypto-js'],
+        },
       },
     },
   },

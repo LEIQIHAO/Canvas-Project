@@ -71,10 +71,13 @@ button:focus-visible {
 }
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  /* 移除宽度限制和居中 */
+  /* max-width: 1280px; */
+  /* margin: 0 auto; */
+  padding: 2rem; /* 保留内边距 */
+  /* text-align: center; */ /* 移除全局居中，如果需要 */
+  width: 100%; /* 确保应用宽度 */
+  box-sizing: border-box; /* 确保 padding 不会撑大容器 */
 }
 
 @media (prefers-color-scheme: light) {

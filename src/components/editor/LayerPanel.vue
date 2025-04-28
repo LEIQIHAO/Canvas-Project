@@ -2,54 +2,42 @@
   <div class="layer-panel">
     <h4>图层</h4>
     <el-scrollbar height="calc(100% - 40px)">
-      <ul class="layer-list">
-        <li
-          v-for="component in reversedComponents"
-          :key="component.id"
-          :class="{ selected: canvasStore.selectedComponentIds.includes(component.id) }"
+      <div class="layer-list">
+        <div
+          v-for="(comp, index) in reversedComponents"
+          :key="comp.id"
           class="layer-item"
-          @click="handleLayerClick(component.id, $event)"
+          :class="{ 'is-selected': isSelected(comp.id) }"
+          @click="handleSelect(comp.id)"
         >
-          <el-checkbox size="small" class="layer-checkbox" @click.stop />
-          <!-- Placeholder for future multi-select -->
-          <span class="layer-icon">☐</span>
-          <!-- Placeholder icon -->
-          <span class="layer-name">{{ component.label || component.key }}</span>
-          <div class="layer-actions">
-            <!-- Up/Down Arrows -->
-            <el-button
-              icon="ArrowUp"
-              :disabled="isTopLayer(component.id)"
-              title="上移一层"
-              size="small"
-              text
-              @click.stop="moveLayer(component.id, 'up')"
-            />
-            <el-button
-              icon="ArrowDown"
-              :disabled="isBottomLayer(component.id)"
-              title="下移一层"
-              size="small"
-              text
-              @click.stop="moveLayer(component.id, 'down')"
-            />
-            <!-- Delete Button -->
-            <el-button
-              icon="Delete"
-              title="删除图层"
-              size="small"
-              type="danger"
-              text
-              @click.stop="deleteLayer(component.id)"
-            />
+          <div class="layer-info">
+            <span class="layer-name">{{ comp.name || `图层 ${index + 1}` }}</span>
+            <span class="layer-type">{{ comp.type }}</span>
           </div>
-        </li>
-        <el-empty
-          v-if="canvasStore.components.length === 0"
-          description="画布为空"
-          :image-size="60"
-        />
-      </ul>
+          <div class="layer-actions">
+            <el-button
+              type="text"
+              size="small"
+              :disabled="index === 0"
+              @click.stop="handleMove(comp.id, 'up')"
+            >
+              <el-icon><ArrowUp /></el-icon>
+            </el-button>
+            <el-button
+              type="text"
+              size="small"
+              :disabled="index === reversedComponents.length - 1"
+              @click.stop="handleMove(comp.id, 'down')"
+            >
+              <el-icon><ArrowDown /></el-icon>
+            </el-button>
+            <el-button type="text" size="small" @click.stop="handleDelete(comp.id)">
+              <el-icon><Delete /></el-icon>
+            </el-button>
+          </div>
+        </div>
+        <div v-if="!reversedComponents.length" class="empty-state">暂无图层</div>
+      </div>
     </el-scrollbar>
   </div>
 </template>
@@ -57,21 +45,44 @@
 <script setup>
 import { computed } from 'vue';
 import { useCanvasStore } from '@/stores/canvas';
-import { ElScrollbar, ElButton, ElCheckbox, ElEmpty, ElMessage, ElMessageBox } from 'element-plus'; // Added ElCheckbox, ElMessage, ElMessageBox
+import { ArrowUp, ArrowDown, Delete } from '@element-plus/icons-vue';
+import { ElScrollbar, ElButton, ElCheckbox, ElEmpty, ElMessage, ElMessageBox } from 'element-plus';
 
 const canvasStore = useCanvasStore();
 
-// Reverse the components array for display (top layer first)
 const reversedComponents = computed(() => {
+  if (!Array.isArray(canvasStore.components)) {
+    return [];
+  }
   return [...canvasStore.components].reverse();
 });
 
-const handleLayerClick = (id, event) => {
-  canvasStore.selectComponent(id, event.shiftKey);
+const isSelected = (id) => {
+  if (!Array.isArray(canvasStore.selectedComponentIds)) {
+    return false;
+  }
+  return canvasStore.selectedComponentIds.includes(id);
 };
 
-const moveLayer = (id, direction) => {
-  canvasStore.moveLayer(id, direction);
+const handleSelect = (id) => {
+  canvasStore.selectComponent(id);
+};
+
+const handleMove = (id, direction) => {
+  const index = canvasStore.components.findIndex((comp) => comp.id === id);
+  if (index === -1) return;
+
+  const newIndex = direction === 'up' ? index - 1 : index + 1;
+  if (newIndex < 0 || newIndex >= canvasStore.components.length) return;
+
+  const newComponents = [...canvasStore.components];
+  const [moved] = newComponents.splice(index, 1);
+  newComponents.splice(newIndex, 0, moved);
+  canvasStore.updateComponents(newComponents);
+};
+
+const handleDelete = (id) => {
+  canvasStore.deleteComponent(id);
 };
 
 // NEW: Delete Layer Function
@@ -143,86 +154,50 @@ h4 {
 .layer-item {
   display: flex;
   align-items: center;
-  /* justify-content: space-between; Remove this */
-  padding: 5px 15px; /* Reduced vertical padding */
-  /* margin-bottom: 1px; */ /* Remove margin, use borders */
-  border: none;
-  border-bottom: 1px solid #f1f3f5; /* Add bottom border for separation */
+  justify-content: space-between;
+  padding: 8px;
+  margin-bottom: 4px;
+  border-radius: 4px;
   cursor: pointer;
-  transition:
-    background-color 0.2s,
-    border-color 0.2s;
-}
-
-.layer-item:last-child {
-  border-bottom: none; /* Remove border for the last item */
+  transition: all 0.3s;
 }
 
 .layer-item:hover {
-  background-color: #e9ecef; /* Hover background */
+  background-color: var(--el-fill-color-light);
 }
 
-.layer-item.selected {
-  background-color: #cfe2ff; /* Selected background */
-  /* border-color: #b3d8ff; Remove border highlight */
+.layer-item.is-selected {
+  background-color: var(--el-color-primary-light-9);
 }
 
-.layer-checkbox {
-  margin-right: 8px; /* Space after checkbox */
-  /* Align checkbox properly if needed */
-  vertical-align: middle;
-}
-
-.layer-icon {
-  margin-right: 8px; /* Space after icon */
-  color: #6c757d; /* Icon color */
-  font-size: 14px; /* Adjust icon size if needed */
-  width: 16px; /* Fixed width for alignment */
-  text-align: center;
-  line-height: 1;
+.layer-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .layer-name {
-  flex-grow: 1;
-  margin-right: 10px;
+  display: block;
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+  margin-bottom: 4px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px; /* Slightly smaller font */
-  color: #495057;
-  line-height: 1.5;
+}
+
+.layer-type {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .layer-actions {
-  flex-shrink: 0;
-  display: flex; /* Use flex for button alignment */
-  align-items: center;
-  gap: 0; /* Remove gap if using text buttons */
-  opacity: 0; /* Hide actions by default */
-  transition: opacity 0.2s;
-}
-
-.layer-item:hover .layer-actions,
-.layer-item.selected .layer-actions {
-  opacity: 1; /* Show on hover or when selected */
+  display: flex;
+  gap: 4px;
 }
 
 .layer-actions .el-button {
-  padding: 2px; /* Further reduced padding */
-  color: #6c757d; /* Default icon color */
-}
-
-.layer-actions .el-button:hover {
-  color: #409eff; /* Hover color */
-  background-color: transparent;
-}
-
-.layer-actions .el-button.is-disabled {
-  color: #adb5bd; /* Disabled color */
-}
-
-.layer-actions .el-button.el-button--danger:not(.is-disabled):hover {
-  color: #dc3545; /* Danger hover color */
+  padding: 0;
+  margin: 0;
 }
 
 .el-scrollbar {
@@ -232,5 +207,12 @@ h4 {
 .el-empty {
   padding-top: 50px; /* Adjust empty state position */
   margin: 0 15px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
 }
 </style>
