@@ -461,7 +461,7 @@ const materials = ref([
     icon: IconMinus, // Keep Minus icon
     propValue: '',
     // 与 visual-drag-demo/component-list.js 对齐 (已匹配)
-    style: { width: 150, height: 5, backgroundColor: '#000' },
+    style: { width: 150, height: 2, backgroundColor: '#000' }, // Change height to 2px
   },
   {
     component: 'CircleShape',
@@ -1157,7 +1157,9 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
       newWidth = Math.max(10, initialBounds.width + deltaX);
     }
     if (direction.includes('bottom')) {
-      newHeight = Math.max(10, initialBounds.height + deltaY);
+      // Allow LineShape to have minimum height of 1px
+      const minHeight = component.key === 'LineShape' ? 1 : 10;
+      newHeight = Math.max(minHeight, initialBounds.height + deltaY);
     }
     if (direction.includes('left')) {
       const preliminaryWidth = Math.max(10, initialBounds.width - deltaX);
@@ -1165,7 +1167,9 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
       newWidth = preliminaryWidth;
     }
     if (direction.includes('top')) {
-      const preliminaryHeight = Math.max(10, initialBounds.height - deltaY);
+      // Allow LineShape to have minimum height of 1px
+      const minHeight = component.key === 'LineShape' ? 1 : 10;
+      const preliminaryHeight = Math.max(minHeight, initialBounds.height - deltaY);
       newTop = initialBounds.top + initialBounds.height - preliminaryHeight;
       newHeight = preliminaryHeight;
     }
