@@ -156,6 +156,7 @@ export const canvasService = {
     try {
       const response = await api.put(`/${id}`, {
         title: data.title,
+        content: data.content ?? undefined,
         updatedAt: new Date().toISOString(),
       });
       return response.data;

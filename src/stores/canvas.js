@@ -158,50 +158,41 @@ export const useCanvasStore = defineStore('canvas', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await canvasService.getCanvas(id); // Get { statusCode, message, data }
+      const response = await canvasService.getCanvas(id); // Assuming this returns { data: { canvas: {...}, components: [...] } }
       if (response && response.data) {
-        const canvasData = response.data; // This is { id, title, content, ... }
+        const canvasData = response.data; // This should be { canvas: {...}, components: [...] }
 
-        // Ensure content is array
-        let contentArray = [];
-        if (canvasData.content && Array.isArray(canvasData.content)) {
-          contentArray = canvasData.content;
-        } else {
-          // Handle object or invalid content
-          console.warn('API content invalid/object, using empty array.');
-          contentArray = [];
+        // --- Validate the new structure ---
+        if (!canvasData.canvas || !canvasData.components || !Array.isArray(canvasData.components)) {
+          console.error('Loaded data structure is invalid:', canvasData);
+          throw new Error('Invalid canvas data structure received from server.');
         }
+        // ---------------------------------
 
-        // *** Update state CORRECTLY ***
-        components.value = JSON.parse(JSON.stringify(contentArray)); // Update components (deep copy)
+        // *** Update state CORRECTLY using the new structure ***
+        components.value = JSON.parse(JSON.stringify(canvasData.components)); // Update components (deep copy)
         selectedComponentIds.value = []; // RESET selection IDs
         primarySelectedComponent.value = null; // RESET primary selection
 
-        // Store metadata
+        // Store metadata (simplified, assuming ID and Title are top-level or within canvasData.canvas)
         currentCanvasMeta.value = {
-          id: canvasData.id,
-          title: canvasData.title,
-          ownerId: canvasData.ownerId, // Assuming ownerId exists
-          // Add other relevant metadata fields from canvasData if needed
+          id: canvasData.id || canvasData.canvas?.id, // Get ID
+          title: canvasData.title || canvasData.canvas?.title, // Get Title
+          // Add other relevant metadata fields if needed
         };
 
         // Reset history for the new canvas
         history.value = [JSON.parse(JSON.stringify(components.value))];
         historyIndex.value = 0;
+
+        // --- Return the canvas metadata object ---
+        return canvasData.canvas;
+        // -----------------------------------------
       } else {
         // Handle invalid API response structure
-        console.error('Invalid API response structure:', response);
-        // Clear state
-        components.value = [];
-        selectedComponentIds.value = [];
-        primarySelectedComponent.value = null;
-        currentCanvasMeta.value = null;
-        history.value = [];
-        historyIndex.value = -1;
+        console.error('Invalid API response structure (missing data): ', response);
+        throw new Error('Invalid API response structure');
       }
-      // Return metadata or potentially the canvasData itself if needed downstream
-      // Returning metadata seems more appropriate if components are accessed via store state
-      return currentCanvasMeta.value;
     } catch (err) {
       // Handle fetch error
       console.error('获取画布详情失败:', err);
@@ -212,7 +203,7 @@ export const useCanvasStore = defineStore('canvas', () => {
       currentCanvasMeta.value = null;
       history.value = [];
       historyIndex.value = -1;
-      error.value = err.response?.data?.message || '获取画布详情失败';
+      error.value = err.response?.data?.message || err.message || '获取画布详情失败';
       throw err; // Re-throw error for component handling
     } finally {
       loading.value = false;
@@ -506,20 +497,35 @@ export const useCanvasStore = defineStore('canvas', () => {
     loading.value = true;
     error.value = null;
     try {
-      // 修复：确保调用 service 时使用正确的 id 参数名
+      // Pass the full data object received from the component to the service
       const response = await canvasService.updateCanvas(canvasId, data);
-      const updatedCanvas = response?.data || response;
+      const updatedCanvas = response?.data || response; // Assuming service returns { data: ... } or just data
 
-      // Update currentCanvasMeta if it matches
-      if (currentCanvasMeta.value?.id === canvasId && updatedCanvas) {
-        currentCanvasMeta.value.title = updatedCanvas.title;
+      // --- Optional: Update local state based on response if needed ---
+      // Example: Update title in the list if it was changed
+      if (updatedCanvas) {
+        // Update currentCanvasMeta if it matches
+        if (currentCanvasMeta.value?.id === canvasId) {
+          currentCanvasMeta.value.title =
+            updatedCanvas.canvas?.title || updatedCanvas.title || currentCanvasMeta.value.title;
+          // Update other meta if returned
+        }
+        // Update the list if the canvas is present
+        const index = myCanvasesList.value.findIndex((c) => c.id === canvasId);
+        if (index !== -1) {
+          // Merge update, prioritize title from updatedCanvas if available
+          const listTitle =
+            updatedCanvas.canvas?.title || updatedCanvas.title || myCanvasesList.value[index].title;
+          myCanvasesList.value[index] = {
+            ...myCanvasesList.value[index],
+            ...updatedCanvas,
+            title: listTitle,
+          };
+        }
       }
-      // Update the list if the canvas is present
-      const index = myCanvasesList.value.findIndex((c) => c.id === canvasId); // Use canvasId
-      if (index !== -1 && updatedCanvas) {
-        myCanvasesList.value[index] = { ...myCanvasesList.value[index], ...updatedCanvas };
-      }
-      return updatedCanvas;
+      // ---------------------------------------------------------------
+
+      return updatedCanvas; // Return the response data
     } catch (err) {
       console.error('更新画布失败:', err);
       error.value = err.response?.data?.message || '更新画布失败';

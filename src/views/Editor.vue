@@ -225,7 +225,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, watch, nextTick } from 'vue';
 import { useCanvasStore } from '@/stores/canvas'; // 导入 store
-import { useRouter } from 'vue-router'; // Import useRouter
+import { useRouter, useRoute } from 'vue-router'; // Import useRouter and useRoute
 import PropsEditor from '@/components/editor/PropsEditor.vue'; // 导入属性编辑器
 import {
   ElButton,
@@ -1230,14 +1230,39 @@ const handlePreview = () => {
   );
 };
 
-const handleSave = () => {
+const handleSave = async () => {
+  const canvasId = route.params.id;
+  if (!canvasId) {
+    ElMessage.error('无法保存：缺少画布 ID');
+    console.error('Cannot save: Canvas ID is missing from route params');
+    return;
+  }
+
+  // --- 构建新的、更完整的数据结构 ---
+  const dataToSave = {
+    content: {
+      canvas: {
+        width: canvasWidth.value,
+        height: canvasHeight.value,
+        scale: scale.value,
+      },
+      components: canvasStore.components,
+    }, // Store already holds the components array
+  };
+  // -----------------------------------
+
+  console.log(`准备保存画布 ID: ${canvasId}`, dataToSave);
+
   try {
-    const dataToSave = JSON.stringify(canvasStore.components);
-    localStorage.setItem('canvasData', dataToSave);
-    ElMessage.success('画布数据已保存到 localStorage');
+    // --- 使用 Store Action ---
+    await canvasStore.updateCanvas(canvasId, dataToSave);
+    // -----------------------
+    ElMessage.success('画布已保存到服务器');
+    // canvasStore.markHistorySaved(); // store action might handle this, or keep if needed
   } catch (error) {
-    console.error('Failed to save canvas data:', error);
-    ElMessage.error('保存失败');
+    console.error('保存画布失败(Editor.vue):', error);
+    // Error message should be handled by the store action's throw
+    // ElMessage.error('保存失败...'); // Can add specific message here if needed
   }
 };
 
@@ -1373,6 +1398,9 @@ onMounted(() => {
     updateCanvasSize();
     console.log('画布初始化完成', canvasWidth.value, canvasHeight.value, '缩放比例:', scale.value);
   });
+
+  // --- 在 onMounted 中调用加载函数 ---
+  loadCanvasData();
 });
 
 onUnmounted(() => {
@@ -2043,10 +2071,55 @@ const handleCanvasDoubleClick = (event) => {
 };
 
 const router = useRouter(); // Get router instance
+const route = useRoute(); // <--- Get route object
 
 // Function to navigate back
 const goBackToList = () => {
   router.push('/canvas'); // Navigate to the canvas list page
+};
+
+// --- 加载画布数据 ---
+const loadCanvasData = async () => {
+  const canvasId = route.params.id;
+  if (!canvasId) {
+    ElMessage.error('无法加载画布：缺少画布 ID');
+    console.error('Canvas ID is missing from route params');
+    return;
+  }
+
+  console.log(`尝试加载画布 ID: ${canvasId}`);
+  try {
+    // --- 使用 Store Action ---
+    const canvasMetadata = await canvasStore.fetchCanvas(canvasId); // Fetch data and update store state
+    // -----------------------
+
+    // --- 使用返回的元数据更新本地状态 ---
+    if (canvasMetadata) {
+      canvasWidth.value = canvasMetadata.width || 1200;
+      canvasHeight.value = canvasMetadata.height || 800;
+      scale.value = canvasMetadata.scale || 1;
+      await nextTick();
+      updateCanvasSize();
+
+      // Update page title (optional)
+      // if (canvasStore.currentCanvasMeta?.title) { ... }
+
+      ElMessage.success('画布加载成功');
+    } else {
+      // fetchCanvas action should throw an error if loading fails significantly
+      // This else block might not be strictly necessary if errors are always thrown
+      console.warn('fetchCanvas did not return expected metadata.');
+      // Handle case where metadata might be missing but components loaded? (Depends on store logic)
+    }
+    // -----------------------------------------
+
+    // Removed manual component setting, store action handles it.
+    // Removed manual history reset, store action handles it.
+  } catch (error) {
+    console.error('加载画布数据失败(Editor.vue):', error);
+    // Error message should be handled/thrown by the store action
+    // ElMessage.error('加载画布数据失败...');
+  }
 };
 </script>
 
