@@ -287,6 +287,9 @@ import RectShape from '@/components/custom/RectShape.vue';
 import LineShape from '@/components/custom/LineShape.vue';
 import CircleShape from '@/components/custom/CircleShape.vue';
 import SVGTriangle from '@/components/custom/SVGTriangle.vue';
+import SVGPentagon from '@/components/custom/SVGPentagon.vue';
+import SVGHexagon from '@/components/custom/SVGHexagon.vue';
+import SVGTrapezoid from '@/components/custom/SVGTrapezoid.vue';
 import SVGStar from '@/components/custom/SVGStar.vue';
 import VTable from '@/components/custom/VTable.vue';
 import VChart from '@/components/custom/VChart.vue';
@@ -296,6 +299,9 @@ import VTag from '@/components/custom/VTag.vue'; // 导入Tag组件
 import IconHollowCircle from '@/components/icons/IconHollowCircle.vue';
 import IconHollowRectangle from '@/components/icons/IconHollowRectangle.vue';
 import IconHollowTriangle from '@/components/icons/IconHollowTriangle.vue';
+import IconHollowPentagon from '@/components/icons/IconHollowPentagon.vue';
+import IconHollowHexagon from '@/components/icons/IconHollowHexagon.vue';
+import IconHollowTrapezoid from '@/components/icons/IconHollowTrapezoid.vue';
 import IconLetterT from '@/components/icons/IconLetterT.vue';
 
 // Dynamically import the recursive component renderer to avoid self-reference issues
@@ -522,6 +528,50 @@ const materials = ref([
       backgroundColor: '',
     },
   },
+  {
+    component: 'SVGPentagon',
+    label: '五边形',
+    icon: IconHollowPentagon, // 替换为合适的图标
+    propValue: '',
+    style: {
+      width: 60,
+      height: 60,
+      fontSize: 20,
+      fontWeight: 400,
+      lineHeight: '',
+      letterSpacing: 0,
+      textAlign: 'center',
+      color: '',
+      borderColor: '#000',
+      backgroundColor: '',
+    },
+  },
+  {
+    component: 'SVGTrapezoid',
+    label: '梯形',
+    icon: IconHollowTrapezoid, // 替换为合适的图标
+    propValue: '',
+    style: {
+      width: 100,
+      height: 60,
+      borderColor: '#000',
+      borderWidth: 1,
+      backgroundColor: '',
+    },
+  },
+  {
+    component: 'SVGHexagon',
+    label: '六边形',
+    icon: IconHollowHexagon, // 替换为合适的图标
+    propValue: '',
+    style: {
+      width: 100,
+      height: 100,
+      borderColor: '#000',
+      borderWidth: 1,
+      backgroundColor: '',
+    },
+  },
   // {
   //   component: 'VTable',
   //   label: '表格',
@@ -655,8 +705,14 @@ const getComponentByType = (type) => {
       return CircleShape;
     case 'SVGStar':
       return SVGStar;
+    case 'SVGPentagon':
+      return SVGPentagon;
+    case 'SVGTrapezoid':
+      return SVGTrapezoid;
     case 'SVGTriangle':
       return SVGTriangle;
+    case 'SVGHexagon':
+      return SVGHexagon;
     case 'VTable':
       return VTable;
     case 'VChart':
@@ -750,7 +806,13 @@ const createComponentFromMaterial = (material, left, top) => {
   const rawStyle = JSON.parse(JSON.stringify(material.style || {}));
 
   // 2. 特殊处理：确保 SVG 组件有明确的背景色设置
-  if (material.component === 'SVGStar' || material.component === 'SVGTriangle') {
+  if (
+    material.component === 'SVGStar' ||
+    material.component === 'SVGPentagon' ||
+    material.component === 'SVGTriangle' ||
+    material.component === 'SVGTrapezoid' ||
+    material.component === 'SVGHexagon'
+  ) {
     if (!rawStyle.backgroundColor || rawStyle.backgroundColor === '') {
       console.log(`为 ${material.component} 设置空背景色`);
       rawStyle.backgroundColor = '';
@@ -791,6 +853,9 @@ const createComponentFromMaterial = (material, left, top) => {
       break;
     case 'SVGStar':
     case 'SVGTriangle':
+    case 'SVGPentagon':
+    case 'SVGTrapezoid':
+    case 'SVGHexagon':
     case 'RectShape':
     case 'CircleShape':
       props = { propValue: material.propValue }; // 这些组件似乎用 propValue 传递简单值
@@ -1151,29 +1216,40 @@ const handleResizeHandleMouseDown = (component, event, direction) => {
     let newTop = initialBounds.top;
     let newWidth = initialBounds.width;
     let newHeight = initialBounds.height;
-
-    // Calculate preliminary new dimensions
-    if (direction.includes('right')) {
-      newWidth = Math.max(10, initialBounds.width + deltaX);
+    if (component.key === 'LineShape') {
+      if (direction.includes('right')) {
+        newWidth = Math.max(10, initialBounds.width + deltaX);
+      }
+      if (direction.includes('left')) {
+        const preliminaryWidth = Math.max(10, initialBounds.width - deltaX);
+        newLeft = initialBounds.left + initialBounds.width - preliminaryWidth;
+        newWidth = preliminaryWidth;
+      }
+      // 高度保持固定
+      newHeight = initialBounds.height;
+    } else {
+      // Calculate preliminary new dimensions
+      if (direction.includes('right')) {
+        newWidth = Math.max(10, initialBounds.width + deltaX);
+      }
+      if (direction.includes('bottom')) {
+        // Allow LineShape to have minimum height of 1px
+        const minHeight = component.key === 'LineShape' ? 1 : 10;
+        newHeight = Math.max(minHeight, initialBounds.height + deltaY);
+      }
+      if (direction.includes('left')) {
+        const preliminaryWidth = Math.max(10, initialBounds.width - deltaX);
+        newLeft = initialBounds.left + initialBounds.width - preliminaryWidth;
+        newWidth = preliminaryWidth;
+      }
+      if (direction.includes('top')) {
+        // Allow LineShape to have minimum height of 1px
+        const minHeight = component.key === 'LineShape' ? 1 : 10;
+        const preliminaryHeight = Math.max(minHeight, initialBounds.height - deltaY);
+        newTop = initialBounds.top + initialBounds.height - preliminaryHeight;
+        newHeight = preliminaryHeight;
+      }
     }
-    if (direction.includes('bottom')) {
-      // Allow LineShape to have minimum height of 1px
-      const minHeight = component.key === 'LineShape' ? 1 : 10;
-      newHeight = Math.max(minHeight, initialBounds.height + deltaY);
-    }
-    if (direction.includes('left')) {
-      const preliminaryWidth = Math.max(10, initialBounds.width - deltaX);
-      newLeft = initialBounds.left + initialBounds.width - preliminaryWidth;
-      newWidth = preliminaryWidth;
-    }
-    if (direction.includes('top')) {
-      // Allow LineShape to have minimum height of 1px
-      const minHeight = component.key === 'LineShape' ? 1 : 10;
-      const preliminaryHeight = Math.max(minHeight, initialBounds.height - deltaY);
-      newTop = initialBounds.top + initialBounds.height - preliminaryHeight;
-      newHeight = preliminaryHeight;
-    }
-
     // Calculate bounds for alignment check
     const currentBounds = {
       id: component.id,

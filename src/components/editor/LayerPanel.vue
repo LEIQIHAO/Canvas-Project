@@ -16,7 +16,7 @@
           </div>
           <div class="layer-actions">
             <el-button
-              type="text"
+              link
               size="small"
               :disabled="index === 0"
               @click.stop="handleMove(comp.id, 'up')"
@@ -24,14 +24,14 @@
               <el-icon><ArrowUp /></el-icon>
             </el-button>
             <el-button
-              type="text"
+              link
               size="small"
               :disabled="index === reversedComponents.length - 1"
               @click.stop="handleMove(comp.id, 'down')"
             >
               <el-icon><ArrowDown /></el-icon>
             </el-button>
-            <el-button type="text" size="small" @click.stop="handleDelete(comp.id)">
+            <el-button link size="small" @click.stop="handleDelete(comp.id)">
               <el-icon><Delete /></el-icon>
             </el-button>
           </div>

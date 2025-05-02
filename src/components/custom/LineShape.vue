@@ -21,7 +21,7 @@ const lineStyle = computed(() => {
   // 返回线条样式
   return {
     width: '100%',
-    height: '100%',
+
     backgroundColor: style.backgroundColor || '#000',
   };
 });
