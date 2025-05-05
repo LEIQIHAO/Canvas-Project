@@ -195,16 +195,36 @@ export const canvasService = {
   async uploadImg(file) {
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('picture', file);
 
-      const response = await api.post('/upload', formData, {
+      // 直接使用完整URL，不通过封装的api实例
+      const response = await axios.post('http://121.37.219.159:13000/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 15000, // 设置15秒超时
       });
+
+      console.log('上传响应详情:', response);
+
+      // 检查响应是否有效
+      if (!response || !response.data) {
+        throw new Error('服务器返回无效响应');
+      }
+
       return response.data;
     } catch (error) {
       console.error('上传文件失败:', error);
+
+      // 为了调试，记录更多详细信息
+      if (error.response) {
+        // 服务器响应了，但状态码不在2xx范围
+        console.error('服务器响应:', error.response.status, error.response.data);
+      } else if (error.request) {
+        // 请求已发送但没有收到响应
+        console.error('未收到响应，请求详情:', error.request);
+      }
+
       throw error;
     }
   },

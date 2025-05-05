@@ -394,7 +394,7 @@ const materials = ref([
   },
   {
     component: 'VUpload',
-    label: '上传',
+    label: '图片',
     icon: markRaw(IconPicture),
     propValue: '',
     style: {
@@ -405,13 +405,13 @@ const materials = ref([
       backgroundColor: '#f5f7fa',
     },
   },
-  {
-    component: 'Picture',
-    label: '图片',
-    icon: markRaw(IconPicture),
-    propValue: { url: 'https://picsum.photos/200/300' },
-    style: { width: 300, height: 200, borderRadius: '' },
-  },
+  // {
+  //   component: 'Picture',
+  //   label: '图片',
+  //   icon: markRaw(IconPicture),
+  //   propValue: { url: 'https://picsum.photos/200/300' },
+  //   style: { width: 300, height: 200, borderRadius: '' },
+  // },
   {
     component: 'RectShape',
     label: '矩形',
@@ -779,6 +779,11 @@ const createComponentFromMaterial = (material, left, top) => {
     case 'VButton':
       props = { text: material.propValue };
       break;
+    case 'VUpload':
+      // 确保VUpload组件接收propValue属性，用于图片URL
+      props = { propValue: material.propValue || '' };
+      console.log('设置VUpload props:', props);
+      break;
     case 'VTag':
     case 'Picture':
       if (typeof material.propValue === 'object' && material.propValue !== null) {
@@ -1002,6 +1007,12 @@ const calculateAlignmentLines = (movingComponentBounds) => {
 
 // --- Update Move Logic ---
 const handleComponentMouseDown = (component, event) => {
+  // 如果点击的是上传组件，则忽略移动逻辑，由组件内部处理点击事件
+  if (component.key === 'VUpload') {
+    // 继续冒泡事件，让组件内部处理
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
 

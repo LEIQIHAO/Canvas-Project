@@ -15,9 +15,10 @@
       v-bind="component.props"
       :element="component"
       class="component-inner"
+      :class="{ 'allow-pointer-events': component.key === 'VUpload' }"
       style="width: 100%; height: 100%; display: block; box-sizing: border-box"
-      @click="emitComponentClick"
-      @mousedown="emitComponentMouseDown"
+      @click="component.key === 'VUpload' ? null : emitComponentClick"
+      @mousedown="component.key === 'VUpload' ? null : emitComponentMouseDown"
     />
 
     <!-- 递归渲染组组件的子组件 -->
@@ -228,14 +229,20 @@ watch(
 
 // --- Event Emitters ---
 const emitComponentClick = (event) => {
-  // Prevent click from propagating further up if needed
-  // event.stopPropagation();
+  // 如果是VUpload组件，不触发点击事件
+  if (props.component.key === 'VUpload') {
+    return;
+  }
+
   emit('component-click', props.component, event);
 };
 
 const emitComponentMouseDown = (event) => {
-  // Prevent mousedown from propagating further up if needed
-  // event.stopPropagation();
+  // 如果是VUpload组件，不触发鼠标按下事件
+  if (props.component.key === 'VUpload') {
+    return;
+  }
+
   emit('component-mousedown', props.component, event);
 };
 
@@ -435,6 +442,11 @@ const handleDoubleClick = (event) => {
   display: block; /* Or flex, depending on component type */
   box-sizing: border-box;
   pointer-events: none; /* Should not interfere with wrapper's events */
+}
+
+/* 允许特定组件（比如VUpload）捕获事件 */
+:deep(.allow-pointer-events) {
+  pointer-events: auto !important;
 }
 
 /* 蓝色控制点样式 */

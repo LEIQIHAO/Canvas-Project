@@ -22,47 +22,64 @@
       transform: style.transform,
       zIndex: 1000,
     }"
-    @click.stop="triggerFileInput"
-    @dragover.prevent
-    @drop.prevent="handleDrop"
+    @click.stop="handleContainerClick"
   >
+    <!-- 将文件输入框放在顶层，更改位置和大小 -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept="image/*"
+      class="file-input"
+      @change="handleFileChange"
+    />
+
     <div
       v-if="!imageUrl"
       class="upload-placeholder"
-      @click.stop="triggerFileInput"
-      @dragover.prevent
+      :class="{ dragover: isDragover }"
+      @dragover.prevent="onDragOver"
+      @dragleave.prevent="onDragLeave"
       @drop.prevent="handleDrop"
     >
       <el-icon class="upload-icon">
         <Upload />
       </el-icon>
-      <span class="upload-text">点击或拖拽上传图片</span>
-      <input
-        ref="fileInput"
-        type="file"
-        accept="image/*"
-        class="file-input"
-        @change="handleFileChange"
-      />
+      <span class="upload-text">点击上传图片</span>
     </div>
     <div v-else class="image-preview">
-      <img :src="imageUrl" alt="预览图片" class="preview-image" />
+      <img
+        :src="imageUrl"
+        alt="预览图片"
+        class="preview-image"
+        @load="handleImageLoad"
+        @error="handleImageError"
+      />
       <div class="image-actions">
         <el-button type="primary" size="small" @click.stop="triggerFileInput"> 更换图片 </el-button>
         <el-button type="danger" size="small" @click.stop="handleDelete"> 删除图片 </el-button>
+      </div>
+    </div>
+
+    <!-- 添加上传加载指示器 -->
+    <div v-if="isUploading" class="upload-loading-mask">
+      <div class="upload-loading-spinner" />
+      <div class="upload-loading-text">
+        <div>正在上传...</div>
+        <div class="upload-tip">上传中请勿关闭页面</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { Upload } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { canvasService } from '@/api/canvas';
+import { useCanvasStore } from '@/stores/canvas';
 
 const props = defineProps({
-  value: {
+  propValue: {
     type: String,
     default: '',
   },
@@ -70,27 +87,103 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  element: {
+    type: Object,
+    default: null,
+  },
 });
 
-const emit = defineEmits(['update:value', 'blur']);
+const emit = defineEmits(['update:propValue', 'blur']);
+const canvasStore = useCanvasStore();
 
 const fileInput = ref(null);
-const imageUrl = ref(props.value);
+const imageUrl = ref(props.propValue);
 const isUploading = ref(false);
+const isDragover = ref(false);
+const isSelectingFile = ref(false); // 添加状态表示是否正在选择文件
 
-const triggerFileInput = async () => {
-  console.log('触发文件选择');
-  await nextTick();
-  if (fileInput.value) {
+// 监听属性变化
+watch(
+  () => props.propValue,
+  (newVal) => {
+    console.log('监听到propValue变化:', newVal);
+    imageUrl.value = newVal;
+  },
+  { immediate: true }
+);
+
+// 点击容器时的处理
+const handleContainerClick = (event) => {
+  console.log('VUpload容器被点击', new Date().toISOString());
+  event.stopPropagation();
+
+  // 如果已经在上传中或选择文件中，则不响应点击
+  if (isUploading.value || isSelectingFile.value) {
+    console.log('已在上传或选择文件中，忽略点击');
+    return;
+  }
+
+  triggerFileInput();
+};
+
+// 触发文件选择
+const triggerFileInput = () => {
+  console.log('开始触发文件选择', new Date().toISOString());
+
+  if (isSelectingFile.value) {
+    console.log('已有文件选择对话框打开，忽略重复点击');
+    return;
+  }
+
+  if (!fileInput.value) {
+    console.error('文件输入框引用不存在');
+    ElMessage.error('文件选择器初始化失败');
+    return;
+  }
+
+  try {
+    isSelectingFile.value = true; // 标记正在选择文件
+    console.log('执行文件输入框点击');
+
+    // 直接调用点击，不使用异步
     fileInput.value.click();
-  } else {
-    console.error('文件输入框未找到');
+
+    // 设置超时，如果用户没有选择文件，自动重置状态
+    setTimeout(() => {
+      if (isSelectingFile.value) {
+        console.log('文件选择超时，重置状态');
+        isSelectingFile.value = false;
+      }
+    }, 30000); // 30秒超时
+  } catch (error) {
+    console.error('触发文件选择错误:', error);
+    isSelectingFile.value = false;
+    ElMessage.error('无法打开文件选择器');
   }
 };
 
+const onDragOver = () => {
+  isDragover.value = true;
+};
+
+const onDragLeave = () => {
+  isDragover.value = false;
+};
+
 const handleDrop = (event) => {
+  isDragover.value = false;
+
+  // 如果正在上传，则不处理拖放
+  if (isUploading.value) {
+    console.log('已有上传进行中，忽略拖放');
+    return;
+  }
+
   const file = event.dataTransfer.files[0];
-  if (!file) return;
+  if (!file) {
+    console.log('拖放未包含文件');
+    return;
+  }
 
   // 检查文件类型
   if (!file.type.startsWith('image/')) {
@@ -104,50 +197,115 @@ const handleDrop = (event) => {
     return;
   }
 
-  uploadFile(file);
+  // 直接调用上传到服务器的函数
+  uploadToServer(file);
 };
 
-const uploadFile = async (file) => {
+const handleFileChange = (event) => {
+  console.log('文件选择事件触发', new Date().toISOString());
+
+  // 无论用户是否选择了文件，都重置选择状态
+  isSelectingFile.value = false;
+
+  const file = event.target.files[0];
+  if (!file) {
+    console.log('用户取消了文件选择');
+    return;
+  }
+
+  console.log('选择了文件:', file.name, file.type, file.size);
+
+  // 先清空文件输入框，允许再次选择相同文件
+  event.target.value = '';
+
+  // 直接调用上传到服务器的函数
+  uploadToServer(file);
+};
+
+// 上传到服务器的函数
+const uploadToServer = async (file) => {
+  if (isUploading.value) {
+    console.log('上传已在进行中，请等待');
+    return;
+  }
+
   try {
     isUploading.value = true;
-    const response = await canvasService.uploadImg(file);
+    console.log('开始上传文件到服务器:', file.name);
+    ElMessage.info('正在上传图片...');
 
-    if (response.code === 200) {
-      imageUrl.value = response.data.url;
-      emit('update:value', imageUrl.value);
+    // 设置超时
+    const uploadPromise = canvasService.uploadImg(file);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('上传请求超时')), 15000)
+    );
+
+    const response = await Promise.race([uploadPromise, timeoutPromise]);
+
+    console.log('服务器上传响应:', response);
+
+    if (response && response.code === 200) {
+      // 正确提取URL，兼容不同的接口返回格式
+      let uploadUrl = '';
+      if (response.data && typeof response.data === 'object' && response.data.url) {
+        uploadUrl = response.data.url; // 标准格式：{ data: { url: '...' } }
+      } else if (response.data && typeof response.data === 'string') {
+        uploadUrl = response.data; // 简化格式：{ data: '...' }
+      } else if (response.url) {
+        uploadUrl = response.url; // 直接格式：{ url: '...' }
+      }
+
+      console.log('提取的上传URL:', uploadUrl);
+
+      if (!uploadUrl) {
+        throw new Error('无法从响应中获取图片URL');
+      }
+
+      // 更新URL到组件和全局状态
+      imageUrl.value = uploadUrl;
+      emit('update:propValue', uploadUrl);
+
+      if (props.element && props.element.id) {
+        console.log('通过Store更新组件属性, 组件ID:', props.element.id, '新URL:', uploadUrl);
+        canvasStore.updateComponentProps(props.element.id, { propValue: uploadUrl });
+      }
+
       ElMessage.success('上传成功');
     } else {
-      ElMessage.error(response.message || '上传失败');
+      ElMessage.error(response?.message || '上传失败，服务器返回错误');
     }
   } catch (error) {
-    console.error('上传失败:', error);
-    ElMessage.error('上传失败，请重试');
+    console.error('上传服务器失败:', error);
+    ElMessage.error('上传失败: ' + (error.message || '未知错误'));
   } finally {
     isUploading.value = false;
   }
 };
 
-const handleFileChange = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  await uploadFile(file);
-  // 清空文件输入框，允许重复上传相同文件
-  event.target.value = '';
-};
-
 const handleDelete = () => {
   imageUrl.value = '';
-  emit('update:value', '');
+  emit('update:propValue', '');
+
+  // 同步更新store
+  if (props.element && props.element.id) {
+    canvasStore.updateComponentProps(props.element.id, { propValue: '' });
+  }
+
   ElMessage.success('图片已删除');
 };
 
-const handleDoubleClick = (event) => {
-  event.stopPropagation();
-  event.preventDefault();
+const handleImageLoad = (event) => {
+  console.log('图片加载成功', event.target.naturalWidth, 'x', event.target.naturalHeight);
+};
+
+const handleImageError = (event) => {
+  console.error('图片加载失败:', imageUrl.value);
+  ElMessage.error('图片加载失败，URL可能无效');
 };
 
 onMounted(() => {
-  imageUrl.value = props.value;
+  console.log('VUpload组件挂载，初始值:', props.propValue);
+  imageUrl.value = props.propValue;
 });
 </script>
 
@@ -180,8 +338,12 @@ onMounted(() => {
   z-index: 1001;
 }
 
-.upload-placeholder:hover,
 .upload-placeholder.dragover {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
+
+.upload-placeholder:hover {
   border-color: #409eff;
   background-color: #ecf5ff;
 }
@@ -198,15 +360,13 @@ onMounted(() => {
 }
 
 .file-input {
-  display: none;
   position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
   opacity: 0;
-  cursor: pointer;
-  z-index: 1002;
+  z-index: -1;
 }
 
 .image-preview {
@@ -241,5 +401,51 @@ onMounted(() => {
 
 .image-preview:hover .image-actions {
   opacity: 1;
+}
+
+/* 添加上传加载指示器的样式 */
+.upload-loading-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1005;
+}
+
+.upload-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #409eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+.upload-loading-text {
+  color: #409eff;
+  font-size: 14px;
+  text-align: center;
+}
+
+.upload-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
