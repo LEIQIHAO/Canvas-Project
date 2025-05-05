@@ -33,7 +33,7 @@
       <div class="attr-list">
         <div class="component-type">
           <el-tag
-            size="medium"
+            size="default"
             :type="getTagType(selectedComponent.key)"
             :effect="getTagEffect(selectedComponent.key)"
           >
@@ -116,7 +116,7 @@
           </el-collapse-item>
 
           <!-- 组件特定属性 -->
-          <el-collapse-item v-if="selectedComponent.key !== 'VText'" title="组件属性" name="props">
+          <el-collapse-item v-if="selectedComponent.key !== 'VText'" title="组件样式" name="props">
             <div v-if="selectedComponent.key === 'VText'" class="attr-form">
               <!-- This VText specific section inside will effectively never be shown due to the outer v-if,
                    but keeping the structure for potential future changes or clarity.
@@ -260,7 +260,11 @@
 
             <div
               v-else-if="
-                selectedComponent.key === 'SVGStar' || selectedComponent.key === 'SVGTriangle'
+                selectedComponent.key === 'SVGStar' ||
+                selectedComponent.key === 'SVGTriangle' ||
+                selectedComponent.key === 'SVGPentagon' ||
+                selectedComponent.key === 'SVGHexagon' ||
+                selectedComponent.key === 'SVGTrapezoid'
               "
               class="attr-form"
             >
@@ -396,7 +400,7 @@ const clearPaintCanvas = inject('clearPaintCanvas', () => {});
 // 根据组件类型获取Tag标签的类型
 const getTagType = (componentKey) => {
   const typeMap = {
-    VText: '',
+    VText: 'info',
     VButton: 'primary',
     VTag: 'success',
     Picture: 'warning',
@@ -405,12 +409,12 @@ const getTagType = (componentKey) => {
     CircleShape: 'info',
     SVGStar: 'danger',
     SVGTriangle: 'danger',
-    VTable: '',
+    VTable: 'info',
     VChart: 'warning',
     VInput: 'primary',
     group: 'success',
   };
-  return typeMap[componentKey] || '';
+  return typeMap[componentKey] || 'info'; // 默认返回 'info' 而不是空字符串
 };
 
 // 根据组件类型获取Tag标签的效果

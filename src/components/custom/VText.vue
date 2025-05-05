@@ -171,6 +171,7 @@
 <script setup>
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useCanvasStore } from '@/stores/canvas';
+import { ElMessage } from 'element-plus';
 
 // 获取画布store
 const canvasStore = useCanvasStore();
@@ -388,22 +389,36 @@ const handleDragCreatedText = (event) => {
 
 // 显示的内容，优先使用直接传入的content，否则从element中获取
 const displayContent = computed(() => {
-  if (props.content) {
-    return props.content;
-  } else if (props.element?.props?.content) {
-    return props.element.props.content;
+  console.log(`[VText ${props.element?.id}] displayContent: 计算显示内容`);
+  console.log(
+    `[VText ${props.element?.id}] displayContent: 当前内容:`,
+    props.element?.props?.content
+  );
+
+  if (!props.element?.props?.content) {
+    console.log(`[VText ${props.element?.id}] displayContent: 内容为空，返回默认文本`);
+    return '双击编辑文本';
   }
 
-  return '';
+  // 确保内容是一个有效的字符串
+  const content = String(props.element.props.content).trim();
+  console.log(`[VText ${props.element?.id}] displayContent: 处理后的内容:`, content);
+
+  return content || '双击编辑文本';
 });
 
 // 计算文本样式
 const textStyle = computed(() => {
   const style = props.element?.style || {};
+  const fontSize = style.fontSize || '14px';
+
+  // 计算最小高度，基于字体大小
+  const fontSizeNum = parseInt(fontSize);
+  const minHeight = Math.max(fontSizeNum * 2, 40); // 至少是字体大小的2倍，最小40px
 
   return {
     fontFamily: style.fontFamily || 'Arial, sans-serif',
-    fontSize: style.fontSize || '14px',
+    fontSize: fontSize,
     fontWeight: style.fontWeight || 'normal',
     fontStyle: style.fontStyle || 'normal',
     textDecoration: style.textDecoration || 'none',
@@ -414,14 +429,22 @@ const textStyle = computed(() => {
     backgroundColor: style.backgroundColor || 'transparent',
     padding: style.padding || '5px',
     verticalAlign: style.verticalAlign || 'middle',
+    minHeight: `${minHeight}px`, // 添加最小高度
   };
 });
 
 // 编辑区域的样式
 const editableTextStyle = computed(() => {
+  const style = props.element?.style || {};
+  const fontSize = style.fontSize || '14px';
+
+  // 计算编辑区域的最小高度，基于字体大小
+  const fontSizeNum = parseInt(fontSize);
+  const minHeight = Math.max(fontSizeNum * 4, 150); // 编辑区域至少是字体大小的4倍，最小150px
+
   return {
     ...textStyle.value,
-    minHeight: '150px',
+    minHeight: `${minHeight}px`,
     maxHeight: '400px',
   };
 });
@@ -967,21 +990,25 @@ const setBackColor = async (event) => {
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* 防止文本内容溢出容器 */
+  overflow: visible; /* 改为 visible，允许内容溢出 */
+  display: flex; /* 使用 flex 布局 */
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
 }
 
 .v-text-inner {
-  /* 确保内部 div 行为正确 */
   width: 100%;
-  height: 100%;
-  display: table-cell; /* 用于垂直居中 */
-  vertical-align: inherit; /* 继承父元素的垂直对齐方式 */
-  user-select: none; /* 防止文本选择 */
-  white-space: pre-wrap; /* 尊重空格并换行文本 */
-  word-wrap: break-word; /* 打断长词 */
-  box-sizing: border-box; /* 将内边距计入尺寸 */
-  cursor: text; /* 显示文本编辑光标，提示可编辑 */
-  overflow: hidden; /* 防止文本溢出 */
+  height: auto; /* 改为 auto，让高度自适应内容 */
+  min-height: inherit;
+  display: block; /* 改为 block，不再使用 table-cell */
+  user-select: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  box-sizing: border-box;
+  cursor: text;
+  overflow: visible; /* 改为 visible，允许内容溢出 */
+  padding: 5px; /* 添加内边距 */
+  line-height: 1.5; /* 确保行高合适 */
 }
 
 /* 确保预览模式下正确显示背景色的样式 */
@@ -1012,8 +1039,7 @@ const setBackColor = async (event) => {
   justify-content: center;
   align-items: center;
   backdrop-filter: blur(3px);
-  pointer-events: all; /* 确保捕获所有指针事件 */
-  /* 确保模态框不受组件旋转影响 */
+  pointer-events: all;
   transform: none !important;
 }
 
@@ -1029,8 +1055,7 @@ const setBackColor = async (event) => {
   flex-direction: column;
   overflow: hidden;
   animation: modal-fade-in 0.2s ease-out;
-  pointer-events: auto; /* 确保弹窗内容接收鼠标事件 */
-  /* 确保弹窗内容不受组件旋转影响 */
+  pointer-events: auto;
   transform: none !important;
 }
 
@@ -1241,15 +1266,26 @@ input:disabled {
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;
-  min-height: 350px;
   width: calc(100% - 40px);
   border: 1px solid #e6e9f0;
   margin: 20px;
   border-radius: 6px;
   line-height: 1.6;
-  font-size: 14px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
+  min-height: inherit;
+  height: auto; /* 让高度自适应内容 */
+}
+
+/* 确保编辑器内文本正确显示 */
+.rich-editor :deep(p) {
+  margin: 0;
+  padding: 0;
+  min-height: 1.5em;
+}
+
+.rich-editor :deep(div) {
+  min-height: 1.5em;
 }
 
 /* --- CSS 调整：允许编辑器内显示颜色 --- */

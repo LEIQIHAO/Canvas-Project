@@ -9,10 +9,18 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     CanvasComponentRenderer: typeof import('./components/editor/CanvasComponentRenderer.vue')['default']
+    CanvasEditor: typeof import('./components/editor/CanvasEditor.vue')['default']
     CircleShape: typeof import('./components/custom/CircleShape.vue')['default']
     DataFetcher: typeof import('./components/DataFetcher.vue')['default']
+    ElButton: typeof import('element-plus/es')['ElButton']
+    ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']
+    ElColorPicker: typeof import('element-plus/es')['ElColorPicker']
     ElementDemo: typeof import('./components/ElementDemo.vue')['default']
     ElIcon: typeof import('element-plus/es')['ElIcon']
+    ElInputNumber: typeof import('element-plus/es')['ElInputNumber']
+    ElOption: typeof import('element-plus/es')['ElOption']
+    ElSelect: typeof import('element-plus/es')['ElSelect']
+    FloatingToolbar: typeof import('./components/editor/FloatingToolbar.vue')['default']
     HelloWorld: typeof import('./components/HelloWorld.vue')['default']
     IconHollowCircle: typeof import('./components/icons/IconHollowCircle.vue')['default']
     IconHollowHexagon: typeof import('./components/icons/IconHollowHexagon.vue')['default']
@@ -36,8 +44,10 @@ declare module 'vue' {
     SVGTriangle: typeof import('./components/custom/SVGTriangle.vue')['default']
     VButton: typeof import('./components/custom/VButton.vue')['default']
     VChart: typeof import('./components/custom/VChart.vue')['default']
+    VInput: typeof import('./components/custom/VInput.vue')['default']
     VTable: typeof import('./components/custom/VTable.vue')['default']
     VTag: typeof import('./components/custom/VTag.vue')['default']
     VText: typeof import('./components/custom/VText.vue')['default']
+    VUpload: typeof import('./components/custom/VUpload.vue')['default']
   }
 }

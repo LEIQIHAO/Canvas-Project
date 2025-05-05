@@ -358,6 +358,15 @@ export const useCanvasStore = defineStore('canvas', () => {
     }
   };
 
+  const updateComponentProps = (id, propsChanges) => {
+    const index = components.value.findIndex((c) => c.id === id);
+    if (index !== -1) {
+      const newState = JSON.parse(JSON.stringify(components.value));
+      newState[index].props = { ...newState[index].props, ...propsChanges };
+      commitCanvasChange(newState);
+    }
+  };
+
   const updateMultipleComponentStyles = (updates) => {
     if (!Array.isArray(updates)) return;
     const newState = JSON.parse(JSON.stringify(components.value));
@@ -608,6 +617,15 @@ export const useCanvasStore = defineStore('canvas', () => {
     }
   };
 
+  const deleteComponentById = (id) => {
+    const newState = components.value.filter((c) => c.id !== id);
+    commitCanvasChange(newState);
+    // 如果删除的组件是被选中的，清除选择
+    if (selectedComponentIds.value.includes(id)) {
+      clearSelection();
+    }
+  };
+
   return {
     components,
     selectedComponentIds,
@@ -625,9 +643,11 @@ export const useCanvasStore = defineStore('canvas', () => {
     clearSelection,
     deleteSelectedComponents,
     updateComponentStyle,
+    updateComponentProps,
     updateMultipleComponentStyles,
     groupSelectedComponents,
     ungroupSelectedComponent,
+    deleteComponentById,
     commitCanvasChange,
     setCanvasComponents,
     clearCanvas,

@@ -33,8 +33,8 @@ export default {
   },
   computed: {
     svgViewBox() {
-      const width = parseFloat(this.element.style.width) || 100;
-      const height = parseFloat(this.element.style.height) || 100;
+      const width = parseFloat(this.element.style.width) || 80;
+      const height = parseFloat(this.element.style.height) || 80;
       return `0 0 ${width} ${height}`;
     },
     fillColor() {
@@ -66,8 +66,8 @@ export default {
       const widthValue = parseFloat(this.element.style.width);
       const heightValue = parseFloat(this.element.style.height);
 
-      const width = !isNaN(widthValue) ? widthValue : 100;
-      const height = !isNaN(heightValue) ? heightValue : 100;
+      const width = !isNaN(widthValue) ? widthValue : 80;
+      const height = !isNaN(heightValue) ? heightValue : 80;
 
       this.drawPolygon(width, height);
     },

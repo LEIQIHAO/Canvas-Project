@@ -223,7 +223,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, watch, nextTick } from 'vue';
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  defineAsyncComponent,
+  watch,
+  nextTick,
+  markRaw,
+} from 'vue';
 import { useCanvasStore } from '@/stores/canvas'; // 导入 store
 import { useRouter, useRoute } from 'vue-router'; // Import useRouter and useRoute
 import PropsEditor from '@/components/editor/PropsEditor.vue'; // 导入属性编辑器
@@ -294,6 +303,8 @@ import SVGStar from '@/components/custom/SVGStar.vue';
 import VTable from '@/components/custom/VTable.vue';
 import VChart from '@/components/custom/VChart.vue';
 import VTag from '@/components/custom/VTag.vue'; // 导入Tag组件
+import VInput from '@/components/custom/VInput.vue'; // 添加 VInput 组件导入
+import VUpload from '@/components/custom/VUpload.vue';
 
 // Import custom icons
 import IconHollowCircle from '@/components/icons/IconHollowCircle.vue';
@@ -364,13 +375,11 @@ const canvasPanelRef = ref(null);
 
 // --- Materials (Based on visual-drag-demo structure) ---
 const materials = ref([
-  // Corresponds to component-list.js in visual-drag-demo
   {
     component: 'VText',
     label: '文字',
-    icon: IconLetterT, // 检查这里是否是 IconLetterT
+    icon: markRaw(IconLetterT),
     propValue: '文本',
-    // 与 visual-drag-demo/component-list.js 对齐
     style: {
       width: 200,
       height: 28,
@@ -380,70 +389,34 @@ const materials = ref([
       letterSpacing: 0,
       textAlign: 'center',
       color: '',
-      verticalAlign: 'middle' /* padding is not in original, removed */,
+      verticalAlign: 'middle',
     },
   },
-  // {
-  //   component: 'VButton',
-  //   label: '按钮',
-  //   icon: IconTickets,
-  //   propValue: '按钮',
-  //   // 与 visual-drag-demo/component-list.js 对齐
-  //   style: {
-  //     width: 100,
-  //     height: 34,
-  //     borderWidth: 0, // 默认边框为0
-  //     borderColor: '#000',
-  //     color: '#000',
-  //     backgroundColor: '#fff',
-  //     fontSize: 20,
-  //     fontWeight: 400,
-  //     lineHeight: '',
-  //     letterSpacing: 0,
-  //     textAlign: 'center',
-  //     verticalAlign: 'middle',
-  //     padding: '8px 15px',
-  //   },
-  // },
-  // {
-  //   component: 'VTag',
-  //   label: '标签',
-  //   icon: EditPen,
-  //   propValue: '标签',
-  //   style: {
-  //     width: 80,
-  //     height: 32,
-  //     fontSize: 20,
-  //     fontWeight: 400,
-  //     lineHeight: '',
-  //     letterSpacing: 0,
-  //     textAlign: 'center',
-  //     color: '',
-  //     borderWidth: 1,
-  //     borderColor: '',
-  //     backgroundColor: '',
-  //     verticalAlign: 'middle',
-  //     borderRadius: '4px',
-  //   },
-  //   props: {
-  //     tagType: '',
-  //     tagEffect: 'light',
-  //   },
-  // },
+  {
+    component: 'VUpload',
+    label: '上传',
+    icon: markRaw(IconPicture),
+    propValue: '',
+    style: {
+      width: 300,
+      height: 200,
+      border: '1px solid #dcdfe6',
+      borderRadius: '4px',
+      backgroundColor: '#f5f7fa',
+    },
+  },
   {
     component: 'Picture',
     label: '图片',
-    icon: IconPicture, // Keep Picture icon
-    propValue: { url: 'https://picsum.photos/200/300' }, // 保持 props 结构
-    // 与 visual-drag-demo/component-list.js 对齐 (添加 borderRadius)
+    icon: markRaw(IconPicture),
+    propValue: { url: 'https://picsum.photos/200/300' },
     style: { width: 300, height: 200, borderRadius: '' },
   },
   {
     component: 'RectShape',
     label: '矩形',
-    icon: IconHollowRectangle, // Use custom SVG icon
+    icon: markRaw(IconHollowRectangle),
     propValue: '&nbsp;',
-    // 与 visual-drag-demo/component-list.js 对齐
     style: {
       width: 100,
       height: 100,
@@ -464,17 +437,15 @@ const materials = ref([
   {
     component: 'LineShape',
     label: '直线',
-    icon: IconMinus, // Keep Minus icon
+    icon: markRaw(IconMinus),
     propValue: '',
-    // 与 visual-drag-demo/component-list.js 对齐 (已匹配)
-    style: { width: 150, height: 2, backgroundColor: '#000' }, // Change height to 2px
+    style: { width: 150, height: 2, backgroundColor: '#000' },
   },
   {
     component: 'CircleShape',
     label: '圆形',
-    icon: IconHollowCircle, // Use custom SVG icon
+    icon: markRaw(IconHollowCircle),
     propValue: '&nbsp;',
-    // 与 visual-drag-demo/component-list.js 对齐 (保持50%圆角，补充其他属性)
     style: {
       width: 100,
       height: 100,
@@ -488,14 +459,14 @@ const materials = ref([
       borderWidth: 1,
       backgroundColor: '',
       borderStyle: 'solid',
-      borderRadius: '50%' /* Visual consistency */,
+      borderRadius: '50%',
       verticalAlign: 'middle',
     },
   },
   {
     component: 'SVGStar',
     label: '星形',
-    icon: IconStar, // Keep Star icon
+    icon: markRaw(IconStar),
     propValue: '',
     style: {
       width: 60,
@@ -513,7 +484,7 @@ const materials = ref([
   {
     component: 'SVGTriangle',
     label: '三角形',
-    icon: IconHollowTriangle, // Use custom SVG icon
+    icon: markRaw(IconHollowTriangle),
     propValue: '',
     style: {
       width: 60,
@@ -531,7 +502,7 @@ const materials = ref([
   {
     component: 'SVGPentagon',
     label: '五边形',
-    icon: IconHollowPentagon, // 替换为合适的图标
+    icon: markRaw(IconHollowPentagon),
     propValue: '',
     style: {
       width: 60,
@@ -549,97 +520,61 @@ const materials = ref([
   {
     component: 'SVGTrapezoid',
     label: '梯形',
-    icon: IconHollowTrapezoid, // 替换为合适的图标
+    icon: markRaw(IconHollowTrapezoid),
     propValue: '',
     style: {
-      width: 100,
+      width: 60,
       height: 60,
+      fontSize: 20,
+      fontWeight: 400,
+      lineHeight: '',
+      letterSpacing: 0,
+      textAlign: 'center',
+      color: '',
       borderColor: '#000',
-      borderWidth: 1,
       backgroundColor: '',
     },
   },
   {
     component: 'SVGHexagon',
     label: '六边形',
-    icon: IconHollowHexagon, // 替换为合适的图标
+    icon: markRaw(IconHollowHexagon),
     propValue: '',
     style: {
-      width: 100,
-      height: 100,
+      width: 60,
+      height: 60,
+      fontSize: 20,
+      fontWeight: 400,
+      lineHeight: '',
+      letterSpacing: 0,
+      textAlign: 'center',
+      color: '',
       borderColor: '#000',
-      borderWidth: 1,
       backgroundColor: '',
     },
   },
-  // {
-  //   component: 'VTable',
-  //   label: '表格',
-  //   icon: IconGrid,
-  //   propValue: {
-  //     data: [
-  //       ['表头1', '表头2'],
-  //       ['内容1', '内容2'],
-  //     ],
-  //     stripe: true,
-  //     thBold: true,
-  //   },
-  //   // 补充通用样式
-  //   style: {
-  //     width: 400,
-  //     height: 150,
-  //     fontSize: 20,
-  //     fontWeight: 400,
-  //     lineHeight: '',
-  //     letterSpacing: 0,
-  //     textAlign: 'center',
-  //     color: '',
-  //     verticalAlign: 'middle',
-  //   },
-  // },
-  // {
-  //   component: 'VChart',
-  //   label: '图表',
-  //   icon: IconDataAnalysis,
-  //   propValue: {
-  //     option: {
-  //       /* Default chart options */
-  //     },
-  //   },
-  //   // 补充通用样式
-  //   style: {
-  //     width: 400,
-  //     height: 300,
-  //     fontSize: 20,
-  //     fontWeight: 400,
-  //     lineHeight: '',
-  //     letterSpacing: 0,
-  //     textAlign: 'center',
-  //     color: '',
-  //     verticalAlign: 'middle',
-  //   },
-  // },
-  // // Keep our added Input for now?
-  // {
-  //   component: 'VInput',
-  //   label: '输入框',
-  //   icon: IconEditPen,
-  //   propValue: { placeholder: '请输入...' },
-  //   style: {
-  //     width: 200,
-  //     height: 32,
-  //     fontSize: 20,
-  //     fontWeight: 400,
-  //     lineHeight: '',
-  //     letterSpacing: 0,
-  //     textAlign: 'left',
-  //     color: '#333',
-  //     borderWidth: 1,
-  //     borderColor: '#dcdfe6',
-  //     borderRadius: '4px',
-  //     backgroundColor: '#fff',
-  //   },
-  // }, // Use VInput key
+  {
+    component: 'VInput',
+    label: '输入框',
+    icon: markRaw(IconEditPen),
+    propValue: { placeholder: '请输入...' },
+    style: {
+      width: 200,
+      height: 32,
+      fontSize: 14,
+      fontWeight: 400,
+      lineHeight: '',
+      letterSpacing: 0,
+      textAlign: 'left',
+      color: '#333',
+      borderWidth: 1,
+      borderColor: '#dcdfe6',
+      borderRadius: '4px',
+      backgroundColor: '#fff',
+      verticalAlign: 'middle',
+      padding: '0 8px',
+    },
+  },
 ]);
 
 // --- Drag & Drop ---
@@ -695,6 +630,8 @@ const getComponentByType = (type) => {
       return VButton;
     case 'VTag':
       return VTag;
+    case 'VUpload':
+      return VUpload;
     case 'Picture':
       return Picture;
     case 'RectShape':
@@ -718,7 +655,7 @@ const getComponentByType = (type) => {
     case 'VChart':
       return VChart;
     case 'VInput':
-      return ElInput;
+      return VInput;
     case 'group':
       return 'div';
     default:
@@ -1477,11 +1414,15 @@ onMounted(() => {
 
   // --- 在 onMounted 中调用加载函数 ---
   loadCanvasData();
+  startAutoSave();
 });
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown);
   document.removeEventListener('keyup', handleKeyUp);
+  // 可选：离开编辑器时清理 store 中的当前画布状态？
+  // canvasStore.clearCurrentCanvasState(); // 需要在 store 中实现此方法
+  stopAutoSave();
 });
 
 // --- Helper Function: Get Style (modified to separate rotation) ---
@@ -1607,6 +1548,9 @@ const handleCanvasClick = (event) => {
 
     // 清除对齐线
     alignmentLines.value = [];
+
+    // 点击画布空白处时自动保存
+    autoSave();
   }
 };
 
@@ -2222,6 +2166,7 @@ onMounted(() => {
     if (isNaN(scale.value)) scale.value = 1; // 再次确保 scale 有值
     updateCanvasSize();
   });
+  startAutoSave();
 });
 
 onUnmounted(() => {
@@ -2229,9 +2174,74 @@ onUnmounted(() => {
   document.removeEventListener('keyup', handleKeyUp);
   // 可选：离开编辑器时清理 store 中的当前画布状态？
   // canvasStore.clearCurrentCanvasState(); // 需要在 store 中实现此方法
+  stopAutoSave();
 });
 
 // ... 组件的其余部分 ...
+
+// --- NEW: Auto Save Logic ---
+const autoSaveTimer = ref(null);
+const lastSaveTime = ref(Date.now());
+
+// 自动保存函数
+const autoSave = async () => {
+  try {
+    if (!route.params.id) return;
+
+    const currentTime = Date.now();
+    // 如果距离上次保存时间小于1秒，则不保存（防止频繁保存）
+    if (currentTime - lastSaveTime.value < 1000) return;
+
+    const canvasData = {
+      content: {
+        canvas: {
+          width: canvasWidth.value,
+          height: canvasHeight.value,
+          scale: scale.value,
+        },
+        components: canvasStore.components,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    await canvasStore.updateCanvas(route.params.id, canvasData);
+    lastSaveTime.value = currentTime;
+    console.log('自动保存成功');
+  } catch (error) {
+    console.error('自动保存失败:', error);
+  }
+};
+
+// 启动定时自动保存
+const startAutoSave = () => {
+  // 清除可能存在的旧定时器
+  if (autoSaveTimer.value) {
+    clearInterval(autoSaveTimer.value);
+  }
+  // 每10秒自动保存一次
+  autoSaveTimer.value = setInterval(autoSave, 10000);
+};
+
+// 停止定时自动保存
+const stopAutoSave = () => {
+  if (autoSaveTimer.value) {
+    clearInterval(autoSaveTimer.value);
+    autoSaveTimer.value = null;
+  }
+};
+
+// 监听画布内容变化，触发自动保存
+watch(
+  () => canvasStore.components,
+  () => {
+    // 当组件发生变化时，重置定时器
+    if (autoSaveTimer.value) {
+      clearInterval(autoSaveTimer.value);
+    }
+    startAutoSave();
+  },
+  { deep: true }
+);
 </script>
 
 <style scoped>
@@ -2380,7 +2390,10 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  will-change: transform; /* 优化渲染性能 */
+  will-change: transform;
+  transform: translateZ(0); /* 启用硬件加速 */
+  backface-visibility: hidden; /* 优化渲染性能 */
+  perspective: 1000px; /* 启用3D变换 */
 }
 
 /* 中心画布样式 */
@@ -2388,7 +2401,10 @@ onUnmounted(() => {
   background-color: #fff;
   position: relative;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  will-change: transform; /* 优化渲染性能 */
+  will-change: transform;
+  transform: translateZ(0); /* 启用硬件加速 */
+  backface-visibility: hidden; /* 优化渲染性能 */
+  perspective: 1000px; /* 启用3D变换 */
   background-image:
     linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
@@ -2399,6 +2415,7 @@ onUnmounted(() => {
     5px 5px,
     25px 25px,
     25px 25px;
+  contain: content; /* 优化渲染性能 */
 }
 
 /* 左侧面板样式 */

@@ -190,4 +190,22 @@ export const canvasService = {
       throw error;
     }
   },
+
+  // 上传文件
+  async uploadImg(file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await api.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('上传文件失败:', error);
+      throw error;
+    }
+  },
 };
