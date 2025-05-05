@@ -296,6 +296,31 @@ const handleDelete = () => {
 
 const handleImageLoad = (event) => {
   console.log('图片加载成功', event.target.naturalWidth, 'x', event.target.naturalHeight);
+
+  // 获取图片的实际尺寸
+  const imgWidth = event.target.naturalWidth;
+  const imgHeight = event.target.naturalHeight;
+
+  // 设置最大尺寸
+  const MAX_SIZE = 200;
+
+  // 计算缩放比例
+  let scale = 1;
+  if (imgWidth > MAX_SIZE || imgHeight > MAX_SIZE) {
+    scale = Math.min(MAX_SIZE / imgWidth, MAX_SIZE / imgHeight);
+  }
+
+  // 计算缩放后的尺寸
+  const scaledWidth = Math.round(imgWidth * scale);
+  const scaledHeight = Math.round(imgHeight * scale);
+
+  // 更新组件的尺寸
+  if (props.element && props.element.id) {
+    canvasStore.updateComponentStyle(props.element.id, {
+      width: `${scaledWidth}px`,
+      height: `${scaledHeight}px`,
+    });
+  }
 };
 
 const handleImageError = (event) => {
@@ -317,15 +342,17 @@ onMounted(() => {
   cursor: pointer;
   user-select: none;
   box-sizing: border-box;
-  z-index: 1000;
-  pointer-events: auto;
-  overflow: hidden;
   position: relative;
+  overflow: hidden;
+  min-width: 200px;
+  min-height: 200px;
 }
 
 .upload-placeholder {
   width: 100%;
   height: 100%;
+  min-width: 200px;
+  min-height: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -335,7 +362,6 @@ onMounted(() => {
   background-color: #f5f7fa;
   transition: all 0.3s;
   position: relative;
-  z-index: 1001;
 }
 
 .upload-placeholder.dragover {
@@ -372,6 +398,8 @@ onMounted(() => {
 .image-preview {
   width: 100%;
   height: 100%;
+  min-width: 200px;
+  min-height: 200px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -380,8 +408,8 @@ onMounted(() => {
 }
 
 .preview-image {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
@@ -397,6 +425,7 @@ onMounted(() => {
   border-radius: 4px;
   opacity: 0;
   transition: opacity 0.3s;
+  z-index: 2;
 }
 
 .image-preview:hover .image-actions {
@@ -415,7 +444,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 1005;
+  z-index: 3;
 }
 
 .upload-loading-spinner {
