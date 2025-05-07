@@ -441,6 +441,9 @@ const handleDoubleClick = (event) => {
 /* 允许特定组件（比如VUpload）捕获事件 */
 :deep(.allow-pointer-events) {
   pointer-events: auto !important;
+  /* 确保组件无额外边距 */
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* 点击事件只会被按钮区域捕获，图片区域应该传递给wrapper */
@@ -456,6 +459,17 @@ const handleDoubleClick = (event) => {
 
 :deep(.allow-pointer-events .preview-image) {
   pointer-events: none !important;
+  /* 确保图片不会超出容器 */
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+}
+
+/* 确保VUpload组件不会有额外的padding或margin造成选区偏移 */
+:deep(.v-upload-container) {
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box;
 }
 
 /* 蓝色控制点样式 */

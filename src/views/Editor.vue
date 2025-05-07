@@ -398,9 +398,10 @@ const materials = ref([
     icon: markRaw(IconPicture),
     propValue: '',
     style: {
-      width: 300,
-      height: 200,
-      border: '1px solid #dcdfe6',
+      width: 150,
+      height: 120,
+      borderWidth: '1px',
+      borderColor: '#dcdfe6',
       borderRadius: '4px',
       backgroundColor: '#f5f7fa',
     },
@@ -2262,6 +2263,73 @@ watch(
   },
   { deep: true }
 );
+
+// --- 在 handlePreview 函数附近添加 ---
+const checkVUploadComponents = () => {
+  // 查找所有VUpload组件
+  const uploadComponents = canvasStore.components.filter((comp) => comp.key === 'VUpload');
+
+  if (uploadComponents.length === 0) {
+    ElMessage.warning('画布中没有VUpload组件');
+    return;
+  }
+
+  // 分析每个VUpload组件
+  const analysis = uploadComponents.map((comp) => {
+    const style = comp.style || {};
+
+    // 获取DOM元素以检查实际大小
+    const domElement = document.querySelector(`[data-component-id="${comp.id}"]`);
+    const domInfo = domElement
+      ? {
+          clientWidth: domElement.clientWidth,
+          clientHeight: domElement.clientHeight,
+          offsetWidth: domElement.offsetWidth,
+          offsetHeight: domElement.offsetHeight,
+          boundingClientRect: {
+            width: domElement.getBoundingClientRect().width,
+            height: domElement.getBoundingClientRect().height,
+          },
+        }
+      : '未找到DOM元素';
+
+    return {
+      id: comp.id,
+      styleSize: {
+        width: style.width,
+        height: style.height,
+      },
+      computedSize: domInfo,
+    };
+  });
+
+  // 显示分析结果
+  ElMessageBox.alert(
+    `<div style="max-height: 400px; overflow-y: auto;">
+      <h3>VUpload组件分析：</h3>
+      <pre>${JSON.stringify(analysis, null, 2)}</pre>
+    </div>`,
+    'VUpload组件大小分析',
+    {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: '关闭',
+    }
+  );
+};
+
+// --- 在 handlePreview 函数之后添加按钮到工具栏 ---
+
+// 在 header-right 区域的工具栏中添加调试按钮
+// 找到 <div class="header-right"> 下方末尾处，添加按钮：
+
+// <el-button type="danger" size="small" @click="handleDelete">
+//  删除选中
+// </el-button>
+
+// 添加:
+// <el-button type="warning" size="small" @click="checkVUploadComponents">
+//  检查上传组件
+// </el-button>
 </script>
 
 <style scoped>

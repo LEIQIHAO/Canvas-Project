@@ -302,7 +302,7 @@
           </el-collapse-item>
 
           <!-- 字体样式 -->
-          <el-collapse-item v-if="selectedComponent.key !== 'VText'" title="字体样式" name="style">
+          <!-- <el-collapse-item v-if="selectedComponent.key !== 'VText'" title="字体样式" name="style">
             <div class="attr-form">
               <div class="attr-form-item">
                 <div class="attr-label">字体大小</div>
@@ -348,7 +348,7 @@
                 </el-select>
               </div>
             </div>
-          </el-collapse-item>
+          </el-collapse-item> -->
         </el-collapse>
       </div>
     </div>

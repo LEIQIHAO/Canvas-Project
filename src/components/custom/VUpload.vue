@@ -348,15 +348,11 @@ onMounted(() => {
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  min-width: 200px;
-  min-height: 200px;
 }
 
 .upload-placeholder {
   width: 100%;
   height: 100%;
-  min-width: 200px;
-  min-height: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -366,6 +362,7 @@ onMounted(() => {
   background-color: #f5f7fa;
   transition: all 0.3s;
   position: relative;
+  box-sizing: border-box;
 }
 
 .upload-placeholder.dragover {
@@ -411,13 +408,12 @@ onMounted(() => {
 .image-preview {
   width: 100%;
   height: 100%;
-  min-width: 200px;
-  min-height: 200px;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .preview-image {
