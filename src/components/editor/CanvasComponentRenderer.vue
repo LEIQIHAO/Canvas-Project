@@ -17,8 +17,8 @@
       class="component-inner"
       :class="{ 'allow-pointer-events': component.key === 'VUpload' }"
       style="width: 100%; height: 100%; display: block; box-sizing: border-box"
-      @click="component.key === 'VUpload' ? null : emitComponentClick"
-      @mousedown="component.key === 'VUpload' ? null : emitComponentMouseDown"
+      @click="emitComponentClick"
+      @mousedown="emitComponentMouseDown"
     />
 
     <!-- 递归渲染组组件的子组件 -->
@@ -229,20 +229,14 @@ watch(
 
 // --- Event Emitters ---
 const emitComponentClick = (event) => {
-  // 如果是VUpload组件，不触发点击事件
-  if (props.component.key === 'VUpload') {
-    return;
-  }
-
+  // 如果是VUpload组件，仍然允许点击组件进行选择
+  // 但内部的按钮点击会通过事件冒泡阻止，不会触发这里的选择功能
   emit('component-click', props.component, event);
 };
 
 const emitComponentMouseDown = (event) => {
-  // 如果是VUpload组件，不触发鼠标按下事件
-  if (props.component.key === 'VUpload') {
-    return;
-  }
-
+  // 如果是VUpload组件，仍然允许鼠标按下，以便可以选中和移动组件
+  // 但内部的按钮点击会通过事件冒泡阻止，不会触发移动功能
   emit('component-mousedown', props.component, event);
 };
 
@@ -447,6 +441,21 @@ const handleDoubleClick = (event) => {
 /* 允许特定组件（比如VUpload）捕获事件 */
 :deep(.allow-pointer-events) {
   pointer-events: auto !important;
+}
+
+/* 点击事件只会被按钮区域捕获，图片区域应该传递给wrapper */
+:deep(.allow-pointer-events .upload-button) {
+  pointer-events: auto !important;
+  z-index: 10;
+}
+
+:deep(.allow-pointer-events .image-actions) {
+  pointer-events: auto !important;
+  z-index: 10;
+}
+
+:deep(.allow-pointer-events .preview-image) {
+  pointer-events: none !important;
 }
 
 /* 蓝色控制点样式 */

@@ -1007,12 +1007,20 @@ const calculateAlignmentLines = (movingComponentBounds) => {
 
 // --- Update Move Logic ---
 const handleComponentMouseDown = (component, event) => {
-  // 如果点击的是上传组件，则忽略移动逻辑，由组件内部处理点击事件
-  if (component.key === 'VUpload') {
-    // 继续冒泡事件，让组件内部处理
+  // 检查事件目标是否是上传按钮
+  // 如果点击的是上传按钮或操作按钮，则不触发移动逻辑
+  if (
+    event.target &&
+    (event.target.classList.contains('upload-button') ||
+      event.target.classList.contains('el-button') ||
+      event.target.closest('.upload-button') ||
+      event.target.closest('.image-actions'))
+  ) {
+    console.log('点击了上传按钮或操作按钮，不触发移动');
     return;
   }
 
+  // 防止其他事件
   event.preventDefault();
   event.stopPropagation();
 
@@ -1040,6 +1048,7 @@ const handleComponentMouseDown = (component, event) => {
   // 如果组件已在多选列表中且不是Shift点击，则保持多选状态以便移动
   // 无需做任何操作，保持当前选择
 
+  // 开始拖拽操作
   const startX = event.clientX;
   const startY = event.clientY;
 

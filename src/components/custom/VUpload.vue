@@ -22,7 +22,6 @@
       transform: style.transform,
       zIndex: 1000,
     }"
-    @click.stop="handleContainerClick"
   >
     <!-- 将文件输入框放在顶层，更改位置和大小 -->
     <input
@@ -41,10 +40,13 @@
       @dragleave.prevent="onDragLeave"
       @drop.prevent="handleDrop"
     >
-      <el-icon class="upload-icon">
-        <Upload />
-      </el-icon>
-      <span class="upload-text">点击上传图片</span>
+      <el-button type="primary" class="upload-button" @click.stop="handleUploadButtonClick">
+        <el-icon class="upload-icon-small">
+          <Upload />
+        </el-icon>
+        选择图片
+      </el-button>
+      <!-- <div class="upload-text">或将图片拖到此处</div> -->
     </div>
     <div v-else class="image-preview">
       <img
@@ -55,7 +57,9 @@
         @error="handleImageError"
       />
       <div class="image-actions">
-        <el-button type="primary" size="small" @click.stop="triggerFileInput"> 更换图片 </el-button>
+        <el-button type="primary" size="small" @click.stop="handleUploadButtonClick">
+          更换图片
+        </el-button>
         <el-button type="danger" size="small" @click.stop="handleDelete"> 删除图片 </el-button>
       </div>
     </div>
@@ -112,10 +116,10 @@ watch(
   { immediate: true }
 );
 
-// 点击容器时的处理
-const handleContainerClick = (event) => {
-  console.log('VUpload容器被点击', new Date().toISOString());
-  event.stopPropagation();
+// 专门处理上传按钮的点击 - 触发文件选择
+const handleUploadButtonClick = (event) => {
+  console.log('上传按钮被点击', new Date().toISOString());
+  event.stopPropagation(); // 阻止冒泡，不触发选中组件的逻辑
 
   // 如果已经在上传中或选择文件中，则不响应点击
   if (isUploading.value || isSelectingFile.value) {
@@ -171,6 +175,8 @@ const onDragLeave = () => {
 };
 
 const handleDrop = (event) => {
+  event.preventDefault();
+  event.stopPropagation(); // 阻止事件冒泡
   isDragover.value = false;
 
   // 如果正在上传，则不处理拖放
@@ -197,7 +203,6 @@ const handleDrop = (event) => {
     return;
   }
 
-  // 直接调用上传到服务器的函数
   uploadToServer(file);
 };
 
@@ -339,7 +344,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   user-select: none;
   box-sizing: border-box;
   position: relative;
@@ -374,10 +378,19 @@ onMounted(() => {
   background-color: #ecf5ff;
 }
 
-.upload-icon {
-  font-size: 28px;
-  color: #909399;
-  margin-bottom: 8px;
+.upload-button {
+  padding: 8px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5; /* 确保按钮在最上层 */
+  position: relative;
+}
+
+.upload-icon-small {
+  font-size: 16px;
+  margin-right: 5px;
 }
 
 .upload-text {
@@ -411,6 +424,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  pointer-events: none; /* 防止点击图片触发任何事件 */
 }
 
 .image-actions {
@@ -421,11 +435,12 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   background-color: rgba(255, 255, 255, 0.9);
-  padding: 4px;
+  padding: 8px;
   border-radius: 4px;
   opacity: 0;
   transition: opacity 0.3s;
-  z-index: 2;
+  z-index: 10; /* 确保按钮在顶层 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .image-preview:hover .image-actions {
@@ -444,7 +459,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 3;
+  z-index: 15; /* 确保加载指示器在最顶层 */
 }
 
 .upload-loading-spinner {
