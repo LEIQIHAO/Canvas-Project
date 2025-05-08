@@ -2375,6 +2375,14 @@ const showExportOptions = () => {
         <option value="jpeg">JPG格式 (高兼容性)</option>
       </select>
     </div>
+    <div style="margin-bottom: 15px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: bold;">图片质量：</label>
+      <select id="exportImageQuality" style="width: 100%; padding: 8px; border: 1px solid #dcdfe6; border-radius: 4px;">
+        <option value="2">高清 (2x)</option>
+        <option value="1">普通 (1x)</option>
+        <option value="3">超清 (3x)</option>
+      </select>
+    </div>
     `,
     '导出图片设置',
     {
@@ -2387,10 +2395,8 @@ const showExportOptions = () => {
     .then(() => {
       // 获取用户选择的设置
       const format = document.getElementById('exportImageFormat').value;
-      // 使用固定的图片质量 2x
-      const scale = 2;
-      // 使用固定的白色背景
-      const backgroundColor = '#ffffff';
+      const scale = parseInt(document.getElementById('exportImageQuality').value);
+      const backgroundColor = document.getElementById('exportImageBackground').value;
 
       // 执行导出逻辑
       exportCanvas(format, scale, backgroundColor);

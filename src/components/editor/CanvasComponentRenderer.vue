@@ -302,9 +302,10 @@ const handleDoubleClick = (event) => {
 
 .canvas-component.group {
   /* Groups might have a specific border or background when selected */
-  border: 1px dashed transparent; /* Group border only shown when selected */
-  /* background-color: rgba(0, 0, 255, 0.05); */ /* Optional: subtle bg for groups */
-  overflow: hidden; /* Groups should clip children? Or visible? */
+  border: none; /* 默认不显示边框 */
+  background-color: rgba(200, 200, 200, 0.02); /* 极淡的背景 */
+  overflow: visible !important; /* 确保子组件不被裁剪 */
+  box-sizing: content-box; /* 使用content-box使padding不会影响内部布局 */
 }
 
 /* NEW: Remove border specifically for SVG components */
@@ -475,5 +476,32 @@ const handleDoubleClick = (event) => {
 /* 蓝色控制点样式 */
 .resize-handle.blue-handle {
   background-color: #409eff;
+}
+
+/* 组被选中状态 */
+.canvas-component.group.selected {
+  border: 1px dashed #409eff;
+  background-color: rgba(64, 158, 255, 0.05);
+  outline: none; /* 覆盖默认选中样式 */
+  /* 四个方向都扩大1px */
+  margin: -1px;
+  padding: 1px;
+}
+
+/* 确保组内子组件的内部元素样式正确 */
+.group-child-wrapper :deep(.component-inner) {
+  pointer-events: auto; /* 允许组件内部元素接收事件 */
+}
+
+.group-child-wrapper {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2; /* 确保在组内子组件有较高的显示层级 */
+}
+
+.group-child-wrapper .canvas-component {
+  /* 确保子组件边框可见 */
+  outline: none; /* 移除默认的outline */
+  pointer-events: auto; /* 允许组内子组件接收鼠标事件 */
 }
 </style>
