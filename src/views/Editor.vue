@@ -836,6 +836,7 @@ const createComponentFromMaterial = (material, left, top) => {
   const component = {
     key: material.component,
     label: material.label,
+    name: material.label, // Add name property, initialized with material's label
     style: rawStyle, // style 中不包含 left/top
     props: props,
   };
@@ -1113,29 +1114,31 @@ const handleComponentMouseDown = (component, event) => {
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     alignmentLines.value = [];
-    console.log('Multi-Component move end - committing change with integer coordinates');
+    console.log('Multi-Component move end - committing change');
 
-    // --- 在提交前将最终坐标取整 ---
-    const finalComponentsState = JSON.parse(JSON.stringify(canvasStore.components));
-    const finalUpdates = [];
+    // Create a deep copy of the current components from the store
+    // These components already reflect the live-preview float values from handleMouseMove
+    const updatedComponents = JSON.parse(JSON.stringify(canvasStore.components));
+
+    // Apply the final rounded positions to this deep-copied array
+    // Iterate over the components that were part of the drag operation
     initialSelectedBounds.forEach((initialBounds) => {
-      const comp = finalComponentsState.find((c) => c.id === initialBounds.id);
-      if (comp && comp.style) {
-        const finalLeftFloat = parseFloat(comp.style.left);
-        const finalTopFloat = parseFloat(comp.style.top);
+      const compToUpdate = updatedComponents.find((c) => c.id === initialBounds.id);
+      if (compToUpdate && compToUpdate.style) {
+        // Parse the current float values (which were updated during mousemove)
+        const finalLeftFloat = parseFloat(compToUpdate.style.left);
+        const finalTopFloat = parseFloat(compToUpdate.style.top);
+
+        // Round them and update the style in the copied component
         if (!isNaN(finalLeftFloat) && !isNaN(finalTopFloat)) {
-          finalUpdates.push({
-            id: comp.id,
-            styleChanges: {
-              left: `${Math.round(finalLeftFloat)}px`,
-              top: `${Math.round(finalTopFloat)}px`,
-            },
-          });
+          compToUpdate.style.left = `${Math.round(finalLeftFloat)}px`;
+          compToUpdate.style.top = `${Math.round(finalTopFloat)}px`;
         }
       }
     });
-    // 批量更新取整后的坐标
-    canvasStore.updateMultipleComponentStyles(finalUpdates);
+
+    // Commit the entire updated state (which is a deep copy with rounded values)
+    canvasStore.commitCanvasChange(updatedComponents);
 
     // 更新多选边界框
     updateSelectionBoundingBox();

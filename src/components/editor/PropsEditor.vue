@@ -102,7 +102,7 @@
                 />
               </div>
 
-              <div class="attr-form-item">
+              <!-- <div class="attr-form-item">
                 <div class="attr-label">层级 (z-index)</div>
                 <el-input-number
                   v-model="styleProps.zIndex"
@@ -111,7 +111,7 @@
                   :min="1"
                   @change="updateStyle"
                 />
-              </div>
+              </div> -->
             </div>
           </el-collapse-item>
 

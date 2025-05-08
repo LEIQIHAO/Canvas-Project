@@ -72,17 +72,44 @@ const handleMove = (id, direction) => {
   const index = canvasStore.components.findIndex((comp) => comp.id === id);
   if (index === -1) return;
 
-  const newIndex = direction === 'up' ? index - 1 : index + 1;
-  if (newIndex < 0 || newIndex >= canvasStore.components.length) return;
+  // For reversedComponents, 'up' means moving towards the end of the original array (higher index / visually on top)
+  // and 'down' means moving towards the start of the original array (lower index / visually on bottom).
+  // The visual representation in LayerPanel is reversed, so "up" button moves it "down" in the original array sense.
+  // Let's clarify:
+  // - Visually "Up" in layer panel (closer to top of panel) = higher z-index = later in original components array.
+  // - Visually "Down" in layer panel (closer to bottom of panel) = lower z-index = earlier in original components array.
 
-  const newComponents = [...canvasStore.components];
-  const [moved] = newComponents.splice(index, 1);
-  newComponents.splice(newIndex, 0, moved);
-  canvasStore.updateComponents(newComponents);
+  // Original `components` array order determines render order (last element is topmost).
+  // `reversedComponents` is for display, so index 0 is the topmost visual layer.
+
+  const originalComponents = [...canvasStore.components];
+  const originalIndex = originalComponents.findIndex((comp) => comp.id === id);
+
+  if (originalIndex === -1) return;
+
+  let newOriginalIndex;
+
+  if (direction === 'up') {
+    // Move visually up in the panel (becomes later in original array, higher z-index)
+    newOriginalIndex = originalIndex + 1;
+  } else {
+    // Move visually down in the panel (becomes earlier in original array, lower z-index)
+    newOriginalIndex = originalIndex - 1;
+  }
+
+  // Check bounds for the original array
+  if (newOriginalIndex < 0 || newOriginalIndex >= originalComponents.length) return;
+
+  const [movedItem] = originalComponents.splice(originalIndex, 1);
+  originalComponents.splice(newOriginalIndex, 0, movedItem);
+
+  canvasStore.commitCanvasChange(originalComponents); // Use commitCanvasChange
 };
 
 const handleDelete = (id) => {
-  canvasStore.deleteComponent(id);
+  // Directly call the store action that handles deletion by ID and confirmation
+  // The deleteLayer function already includes ElMessageBox confirmation.
+  deleteLayer(id); // Use the existing deleteLayer which calls deleteComponentById
 };
 
 // NEW: Delete Layer Function
