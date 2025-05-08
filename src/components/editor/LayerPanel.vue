@@ -187,14 +187,18 @@ h4 {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s;
+  border: 1px solid transparent;
 }
 
 .layer-item:hover {
   background-color: var(--el-fill-color-light);
+  border-color: var(--el-border-color);
 }
 
 .layer-item.is-selected {
   background-color: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary);
 }
 
 .layer-info {
@@ -210,11 +214,21 @@ h4 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.layer-item.is-selected .layer-name {
+  color: var(--el-color-primary);
+  font-weight: 600;
 }
 
 .layer-type {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.layer-item.is-selected .layer-type {
+  color: var(--el-color-primary-light-3);
 }
 
 .layer-actions {
