@@ -2375,14 +2375,6 @@ const showExportOptions = () => {
         <option value="jpeg">JPG格式 (高兼容性)</option>
       </select>
     </div>
-    <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 8px; font-weight: bold;">图片质量：</label>
-      <select id="exportImageQuality" style="width: 100%; padding: 8px; border: 1px solid #dcdfe6; border-radius: 4px;">
-        <option value="2">高清 (2x)</option>
-        <option value="1">普通 (1x)</option>
-        <option value="3">超清 (3x)</option>
-      </select>
-    </div>
     `,
     '导出图片设置',
     {
@@ -2395,8 +2387,10 @@ const showExportOptions = () => {
     .then(() => {
       // 获取用户选择的设置
       const format = document.getElementById('exportImageFormat').value;
-      const scale = parseInt(document.getElementById('exportImageQuality').value);
-      const backgroundColor = document.getElementById('exportImageBackground').value;
+      // 使用固定的图片质量 2x
+      const scale = 2;
+      // 使用固定的白色背景
+      const backgroundColor = '#ffffff';
 
       // 执行导出逻辑
       exportCanvas(format, scale, backgroundColor);
@@ -2981,5 +2975,29 @@ const exportCanvas = (format, scale, backgroundColor) => {
   100% {
     transform: rotate(360deg);
   }
+}
+
+/* 组合组件样式 */
+.canvas-component.group {
+  border: none; /* 默认不显示边框 */
+  background-color: rgba(200, 200, 200, 0.02); /* 极淡的背景 */
+  cursor: move;
+  overflow: visible !important;
+  box-sizing: content-box; /* 使用content-box使padding不会影响内部布局 */
+}
+
+/* 鼠标悬停时显示提示边框 - 去掉这个效果 */
+.canvas-component.group:hover:not(.selected) {
+  border: none; /* 移除hover时显示的边框 */
+  box-shadow: none; /* 移除hover时显示的阴影 */
+}
+
+.canvas-component.group.selected {
+  border: 1px dashed #409eff;
+  background-color: rgba(64, 158, 255, 0.05);
+  outline: none; /* 覆盖默认选中样式 */
+  /* 四个方向都扩大1px */
+  margin: -1px;
+  padding: 1px;
 }
 </style>
