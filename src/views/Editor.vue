@@ -19,7 +19,7 @@
               @click="goBackToList"
             />
             <!-- End: Add Back Button -->
-            <span>编辑器标题</span>
+            <span>{{ canvasStore.currentCanvasMeta?.title || '编辑器' }}</span>
             <!-- Wrap title in span -->
           </div>
           <div class="header-center">
