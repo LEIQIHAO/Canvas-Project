@@ -302,19 +302,72 @@ export const useCanvasStore = defineStore('canvas', () => {
 
   // Internal commit function (simplified example)
   const commitCanvasChange = (newState) => {
-    // Basic history implementation (replace with your actual logic)
     if (historyIndex.value < history.value.length - 1) {
       history.value.splice(historyIndex.value + 1);
     }
-    history.value.push(JSON.parse(JSON.stringify(newState)));
+    history.value.push(newState);
     if (history.value.length > maxHistory) {
       history.value.shift();
-    } else {
-      historyIndex.value++;
     }
-    // Apply the state change
+    historyIndex.value = history.value.length - 1;
+    console.log(
+      `[CanvasStore] History committed, index: ${historyIndex.value} size: ${history.value.length}`
+    );
+
+    const oldPrimarySelectedRef = primarySelectedComponent.value; // Store old reference for comparison
+
     components.value = newState;
-    console.log('History committed, index:', historyIndex.value, 'size:', history.value.length);
+
+    if (selectedComponentIds.value.length === 1) {
+      const newPrimary = newState.find((c) => c.id === selectedComponentIds.value[0]);
+      console.log(
+        '[CanvasStore] Updating single primary selected. Found in newState:',
+        newPrimary ? { id: newPrimary.id, style: newPrimary.style } : null
+      );
+      primarySelectedComponent.value = newPrimary ? JSON.parse(JSON.stringify(newPrimary)) : null;
+      console.log(
+        '[CanvasStore] primarySelectedComponent AFTER update (single select):',
+        primarySelectedComponent.value
+          ? { id: primarySelectedComponent.value.id, style: primarySelectedComponent.value.style }
+          : null
+      );
+    } else if (selectedComponentIds.value.length === 0) {
+      console.log('[CanvasStore] Clearing primary selected (no selection).');
+      primarySelectedComponent.value = null;
+    } else if (selectedComponentIds.value.length > 1 && primarySelectedComponent.value) {
+      const currentPrimaryId = primarySelectedComponent.value.id;
+      if (selectedComponentIds.value.includes(currentPrimaryId)) {
+        const newPrimaryInMulti = newState.find((c) => c.id === currentPrimaryId);
+        console.log(
+          '[CanvasStore] Updating primary in multi-selection. Found in newState:',
+          newPrimaryInMulti ? { id: newPrimaryInMulti.id, style: newPrimaryInMulti.style } : null
+        );
+        primarySelectedComponent.value = newPrimaryInMulti
+          ? JSON.parse(JSON.stringify(newPrimaryInMulti))
+          : null;
+        console.log(
+          '[CanvasStore] primarySelectedComponent AFTER update (multi-select):',
+          primarySelectedComponent.value
+            ? { id: primarySelectedComponent.value.id, style: primarySelectedComponent.value.style }
+            : null
+        );
+      } else {
+        console.log(
+          '[CanvasStore] Primary in multi-select not found or ID mismatch. Attempting fallback.'
+        );
+        const firstSelectedId = selectedComponentIds.value[0];
+        const newPrimaryCandidate = newState.find((c) => c.id === firstSelectedId);
+        primarySelectedComponent.value = newPrimaryCandidate
+          ? JSON.parse(JSON.stringify(newPrimaryCandidate))
+          : null;
+      }
+    }
+    // Log if the reference actually changed
+    if (primarySelectedComponent.value !== oldPrimarySelectedRef) {
+      console.log('[CanvasStore] primarySelectedComponent reference CHANGED.');
+    } else {
+      console.log('[CanvasStore] primarySelectedComponent reference DID NOT CHANGE.');
+    }
   };
 
   const setCanvasComponents = (newComponents) => {

@@ -567,17 +567,27 @@ const handleVTagFocus = () => {
 watch(
   () => props.selectedComponent, // Source: the selected component prop
   (newVal, oldVal) => {
-    // --- Reset/Update Logic WITHOUT extra delays ---
+    console.log(
+      '[PropsEditor] watch selectedComponent triggered. newVal.id:',
+      newVal?.id,
+      'oldVal.id:',
+      oldVal?.id
+    );
 
-    // Condition 1: A new, different component is selected
-    if (newVal && newVal.id !== oldVal?.id) {
-      // 查找canvasStore中的最新组件数据
-      const latestComponent = canvasStore.components.find((c) => c.id === newVal.id) || newVal;
+    if (newVal) {
+      // A component is selected (or re-selected with a new reference)
+      const componentId = newVal.id;
+      // Always try to get the absolute latest version from the store.
+      const latestComponentInStore = canvasStore.components.find((c) => c.id === componentId);
+      const componentToUse = latestComponentInStore || newVal; // Fallback to prop if somehow not in store yet
 
-      const style = latestComponent.style || {};
-      const cProps = latestComponent.props || {};
+      console.log('[PropsEditor] Updating local props for component ID:', componentToUse.id);
+      // console.log('[PropsEditor] Component data used for update:', JSON.parse(JSON.stringify(componentToUse)));
 
-      // --- Define Default Values (for fallback only) ---
+      const style = componentToUse.style || {};
+      const cProps = componentToUse.props || {};
+
+      // Define Default Values (for fallback only)
       const defaultStyles = {
         left: 0,
         top: 0,
@@ -598,7 +608,7 @@ watch(
         color: '#000000',
       };
 
-      // --- Build styleProps: Prioritize incoming style, use defaults as fallback ---
+      // Build styleProps: Prioritize incoming style, use defaults as fallback
       styleProps.value = {
         left: Math.round(parsePx(style.left ?? defaultStyles.left)),
         top: Math.round(parsePx(style.top ?? defaultStyles.top)),
@@ -607,36 +617,31 @@ watch(
         rotation: parseRotation(style.transform) ?? defaultStyles.rotation,
         zIndex: style.zIndex ?? defaultStyles.zIndex, // Use ?? for potential 0 value
         opacity: style.opacity ?? defaultStyles.opacity,
-
-        // Initialize colors - will be overwritten below if applicable
         backgroundColor: style.backgroundColor ?? defaultStyles.backgroundColor,
         borderColor: style.borderColor ?? defaultStyles.borderColor,
         borderWidth: parsePx(style.borderWidth ?? defaultStyles.borderWidth),
         borderRadius: parsePx(style.borderRadius ?? defaultStyles.borderRadius),
-
-        // Text/SVG properties
         fontSize: parsePx(style.fontSize ?? defaultStyles.fontSize),
         fontWeight: style.fontWeight ?? defaultStyles.fontWeight,
         lineHeight: style.lineHeight ?? defaultStyles.lineHeight,
         letterSpacing: parsePx(style.letterSpacing ?? defaultStyles.letterSpacing),
         textAlign: style.textAlign ?? defaultStyles.textAlign,
-        color: style.color ?? defaultStyles.color, // Use incoming or default
+        color: style.color ?? defaultStyles.color,
       };
 
-      // --- Handle specific overrides ---
-      if (latestComponent.key === 'SVGStar' || latestComponent.key === 'SVGTriangle') {
-        // For SVG, ensure backgroundColor in the form is null,
-        // and color field gets the actual fill color (which might be in style.color)
+      // Handle specific overrides
+      if (componentToUse.key === 'SVGStar' || componentToUse.key === 'SVGTriangle') {
         styleProps.value.backgroundColor = null;
-        styleProps.value.color = style.color ?? defaultStyles.color; // Re-confirm color from style.color
+        styleProps.value.color = style.color ?? defaultStyles.color;
       }
-      // No 'else' needed here as the general population above already handled non-SVG cases.
 
-      // --- Update component props ---
+      // Update component props
       componentProps.value = { ...cProps };
-
-      // Condition 2: Component is deselected (newVal is null, oldVal existed)
+      // console.log('[PropsEditor] styleProps AFTER update:', JSON.parse(JSON.stringify(styleProps.value)));
+      // console.log('[PropsEditor] componentProps AFTER update:', JSON.parse(JSON.stringify(componentProps.value)));
     } else if (!newVal && oldVal) {
+      // Component was deselected
+      console.log('[PropsEditor] Component deselected.');
       // Reset the form fields using default values
       styleProps.value = {
         left: 0,
@@ -658,95 +663,12 @@ watch(
         color: '#000000',
       };
       componentProps.value = {};
-
-      // Other cases (no state change needed)
-    } else if (newVal && oldVal && newVal.id === oldVal.id) {
-      // 保持相同的组件，不需要处理
-    } else if (!newVal && !oldVal) {
-      // 初始加载时无选择，不需要处理
     }
+    // No action needed for other cases:
+    // - !newVal && !oldVal (initial state, no selection)
+    // - newVal && oldVal && newVal.id === oldVal.id (selection didn't change - this watcher looks for prop reference change or null)
   },
   { immediate: true, deep: false } // Run immediately, shallow watch
-);
-
-// 添加一个对当前选中组件style变化的监听器
-watch(
-  () => props.selectedComponent?.style,
-  (newStyle) => {
-    if (!props.selectedComponent || !newStyle) return;
-
-    // 更新所有样式属性，而不仅仅是位置相关属性
-    if (newStyle.left !== undefined) {
-      styleProps.value.left = Math.round(parsePx(newStyle.left));
-    }
-    if (newStyle.top !== undefined) {
-      styleProps.value.top = Math.round(parsePx(newStyle.top));
-    }
-    if (newStyle.width !== undefined) {
-      styleProps.value.width = parsePx(newStyle.width);
-    }
-    if (newStyle.height !== undefined) {
-      styleProps.value.height = parsePx(newStyle.height);
-    }
-    if (newStyle.transform !== undefined) {
-      styleProps.value.rotation = parseRotation(newStyle.transform);
-    }
-    if (newStyle.zIndex !== undefined) {
-      styleProps.value.zIndex = newStyle.zIndex;
-    }
-    if (newStyle.opacity !== undefined) {
-      styleProps.value.opacity = newStyle.opacity;
-    }
-    if (newStyle.backgroundColor !== undefined) {
-      styleProps.value.backgroundColor = newStyle.backgroundColor;
-    }
-    if (newStyle.borderColor !== undefined) {
-      styleProps.value.borderColor = newStyle.borderColor;
-    }
-    if (newStyle.borderWidth !== undefined) {
-      styleProps.value.borderWidth = parsePx(newStyle.borderWidth);
-    }
-    if (newStyle.borderRadius !== undefined) {
-      styleProps.value.borderRadius = parsePx(newStyle.borderRadius);
-    }
-    if (newStyle.color !== undefined) {
-      styleProps.value.color = newStyle.color;
-    }
-    if (newStyle.fontSize !== undefined) {
-      styleProps.value.fontSize = parsePx(newStyle.fontSize);
-    }
-    if (newStyle.fontWeight !== undefined) {
-      styleProps.value.fontWeight = newStyle.fontWeight;
-    }
-    if (newStyle.lineHeight !== undefined) {
-      styleProps.value.lineHeight = newStyle.lineHeight;
-    }
-    if (newStyle.letterSpacing !== undefined) {
-      styleProps.value.letterSpacing = parsePx(newStyle.letterSpacing);
-    }
-    if (newStyle.textAlign !== undefined) {
-      styleProps.value.textAlign = newStyle.textAlign;
-    }
-  },
-  { deep: true }
-);
-
-// 添加一个对当前选中组件props变化的监听器
-watch(
-  () => props.selectedComponent?.props,
-  (newProps) => {
-    if (!props.selectedComponent || !newProps) return;
-
-    // 更新本地表单的props值
-    componentProps.value = { ...newProps };
-
-    // 如果是VText组件，确保内容实时同步
-    if (props.selectedComponent.key === 'VText' && newProps.content !== undefined) {
-      // 立即更新文本内容
-      componentProps.value.content = newProps.content;
-    }
-  },
-  { deep: true, immediate: true }
 );
 
 // 监听canvas store中组件的变化，这样即使编辑VText时也能实时同步到PropsEditor
@@ -770,6 +692,50 @@ watch(
       );
       if (currentComponent && currentComponent.props?.text !== componentProps.value.text) {
         componentProps.value.text = currentComponent.props.text;
+      }
+    }
+
+    // 添加对当前选中组件位置和大小的更新
+    if (props.selectedComponent) {
+      const currentComponent = canvasStore.components.find(
+        (c) => c.id === props.selectedComponent.id
+      );
+      if (currentComponent && currentComponent.style) {
+        // 更新位置和大小信息
+        if (currentComponent.style.left !== undefined) {
+          styleProps.value.left = Math.round(parsePx(currentComponent.style.left));
+        }
+        if (currentComponent.style.top !== undefined) {
+          styleProps.value.top = Math.round(parsePx(currentComponent.style.top));
+        }
+        if (currentComponent.style.width !== undefined) {
+          styleProps.value.width = parsePx(currentComponent.style.width);
+        }
+        if (currentComponent.style.height !== undefined) {
+          styleProps.value.height = parsePx(currentComponent.style.height);
+        }
+        if (currentComponent.style.transform !== undefined) {
+          styleProps.value.rotation = parseRotation(currentComponent.style.transform);
+        }
+
+        // 如果需要，也可以更新其他样式属性
+        if (currentComponent.style.backgroundColor !== undefined) {
+          styleProps.value.backgroundColor = currentComponent.style.backgroundColor;
+        }
+        if (currentComponent.style.borderColor !== undefined) {
+          styleProps.value.borderColor = currentComponent.style.borderColor;
+        }
+        if (currentComponent.style.borderWidth !== undefined) {
+          styleProps.value.borderWidth = parsePx(currentComponent.style.borderWidth);
+        }
+
+        console.log('[PropsEditor] 已从store更新组件样式属性:', {
+          id: props.selectedComponent.id,
+          left: styleProps.value.left,
+          top: styleProps.value.top,
+          width: styleProps.value.width,
+          height: styleProps.value.height,
+        });
       }
     }
   },
