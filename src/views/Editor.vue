@@ -75,6 +75,7 @@
             <el-divider direction="vertical" />
             <!-- Separator -->
             <el-button type="primary" size="small" @click="handlePreview"> 预览 </el-button>
+            <el-button type="success" size="small" @click="showExportOptions"> 导出图片 </el-button>
             <el-button size="small" @click="handleSave"> 保存 </el-button>
             <!-- <el-button size="small" @click="handleLoad"> 加载 </el-button> -->
             <el-button type="danger" size="small" @click="handleClear"> 清空 </el-button>
@@ -218,6 +219,22 @@
           </div>
         </template>
       </div>
+    </div>
+  </div>
+
+  <!-- 添加导出加载指示器 -->
+  <div v-if="exportLoading" class="export-loading">
+    <div class="spinner" />
+    <div class="text">
+      {{ exportLoadingText }}
+    </div>
+  </div>
+
+  <!-- 导出加载指示器 -->
+  <div v-if="isExporting" class="export-loading">
+    <div class="spinner" />
+    <div class="text">
+      {{ exportLoadingMessage }}
     </div>
   </div>
 </template>
@@ -368,6 +385,14 @@ const IconRank = CustomRank; // Placeholder for Vant Button (if kept)
 
 // 获取 store 实例
 const canvasStore = useCanvasStore();
+
+// 导出相关状态
+const exportLoading = ref(false);
+const exportLoadingText = ref('正在准备导出画布...');
+
+// 导出图片相关状态变量
+const isExporting = ref(false);
+const exportLoadingMessage = ref('');
 
 // 获取画布元素的引用
 const canvasMainRef = ref(null);
@@ -2338,6 +2363,179 @@ const checkVUploadComponents = () => {
 // <el-button type="warning" size="small" @click="checkVUploadComponents">
 //  检查上传组件
 // </el-button>
+
+// 新增导出为图片的功能
+const showExportOptions = () => {
+  ElMessageBox.confirm(
+    `
+    <div style="margin-bottom: 15px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: bold;">图片格式：</label>
+      <select id="exportImageFormat" style="width: 100%; padding: 8px; border: 1px solid #dcdfe6; border-radius: 4px;">
+        <option value="png">PNG格式 (透明背景)</option>
+        <option value="jpeg">JPG格式 (高兼容性)</option>
+      </select>
+    </div>
+    `,
+    '导出图片设置',
+    {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: '导出',
+      cancelButtonText: '取消',
+      customClass: 'export-dialog',
+    }
+  )
+    .then(() => {
+      // 获取用户选择的设置
+      const format = document.getElementById('exportImageFormat').value;
+      // 使用固定的图片质量 2x
+      const scale = 2;
+      // 使用固定的白色背景
+      const backgroundColor = '#ffffff';
+
+      // 执行导出逻辑
+      exportCanvas(format, scale, backgroundColor);
+    })
+    .catch(() => {
+      ElMessage.info('已取消导出');
+    });
+};
+
+// 导出画布为图片
+const exportCanvas = (format, scale, backgroundColor) => {
+  // 确保canvas引用存在
+  if (!canvasPanelRef.value) {
+    ElMessage.error('无法获取画布元素');
+    return;
+  }
+
+  // 显示加载指示器
+  isExporting.value = true;
+  exportLoadingMessage.value = '正在准备导出画布...';
+
+  // 临时隐藏选择框和对齐线
+  const hasSelection = canvasStore.selectedComponentIds.length > 0;
+  const tempSelectionIds = [...canvasStore.selectedComponentIds];
+  const tempAlignmentLines = [...alignmentLines.value];
+  const tempSelectionBoxVisible = selectionBox.value.visible;
+  const tempSelectionBoundingBoxVisible = selectionBoundingBox.value.visible;
+
+  // 暂时清除选择和对齐线
+  canvasStore.clearSelection();
+  alignmentLines.value = [];
+  selectionBox.value.visible = false;
+  selectionBoundingBox.value.visible = false;
+
+  // 保存原始背景样式
+  const originalBackgroundImage = canvasPanelRef.value.style.backgroundImage;
+  const originalBackgroundSize = canvasPanelRef.value.style.backgroundSize;
+
+  // 移除背景网格，设置纯色背景
+  canvasPanelRef.value.style.backgroundImage = 'none';
+
+  // 使用nextTick确保DOM已更新
+  nextTick(() => {
+    exportLoadingMessage.value = '正在加载导出库...';
+
+    import('html2canvas')
+      .then(({ default: html2canvas }) => {
+        exportLoadingMessage.value = '正在生成图片，这可能需要几秒钟...';
+
+        const options = {
+          scale: scale,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: backgroundColor,
+          logging: false,
+          onclone: (clonedDoc) => {
+            exportLoadingMessage.value = '正在处理画布内容...';
+          },
+        };
+
+        // 添加延迟，确保UI能正确更新
+        setTimeout(() => {
+          html2canvas(canvasPanelRef.value, options)
+            .then((canvas) => {
+              exportLoadingMessage.value = '图片生成完成，准备下载...';
+
+              // 转换为图片并下载
+              const currentDate = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+              const filename = `${canvasStore.currentCanvasMeta?.title || '画布'}_${currentDate}.${format}`;
+
+              // 创建下载链接
+              const link = document.createElement('a');
+              link.download = filename;
+
+              // 根据不同格式设置不同的MIME类型和质量
+              if (format === 'jpeg') {
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
+              } else {
+                link.href = canvas.toDataURL('image/png');
+              }
+
+              setTimeout(() => {
+                link.click();
+
+                // 隐藏加载指示器
+                isExporting.value = false;
+
+                // 显示成功消息
+                ElMessage.success('图片导出成功');
+
+                // 恢复背景网格
+                canvasPanelRef.value.style.backgroundImage = originalBackgroundImage;
+                canvasPanelRef.value.style.backgroundSize = originalBackgroundSize;
+
+                // 恢复选择状态和对齐线
+                if (hasSelection) {
+                  tempSelectionIds.forEach((id) => canvasStore.selectComponent(id, true));
+                }
+                alignmentLines.value = tempAlignmentLines;
+                selectionBox.value.visible = tempSelectionBoxVisible;
+                selectionBoundingBox.value.visible = tempSelectionBoundingBoxVisible;
+              }, 500);
+            })
+            .catch((err) => {
+              console.error('导出图片失败:', err);
+              ElMessage.error('导出图片失败');
+
+              // 恢复背景网格
+              canvasPanelRef.value.style.backgroundImage = originalBackgroundImage;
+              canvasPanelRef.value.style.backgroundSize = originalBackgroundSize;
+
+              // 隐藏加载指示器
+              isExporting.value = false;
+
+              // 恢复选择状态
+              if (hasSelection) {
+                tempSelectionIds.forEach((id) => canvasStore.selectComponent(id, true));
+              }
+              alignmentLines.value = tempAlignmentLines;
+              selectionBox.value.visible = tempSelectionBoxVisible;
+              selectionBoundingBox.value.visible = tempSelectionBoundingBoxVisible;
+            });
+        }, 100);
+      })
+      .catch((err) => {
+        console.error('加载html2canvas库失败:', err);
+        ElMessage.error('加载导出库失败');
+
+        // 恢复背景网格
+        canvasPanelRef.value.style.backgroundImage = originalBackgroundImage;
+        canvasPanelRef.value.style.backgroundSize = originalBackgroundSize;
+
+        // 隐藏加载指示器
+        isExporting.value = false;
+
+        // 恢复选择状态
+        if (hasSelection) {
+          tempSelectionIds.forEach((id) => canvasStore.selectComponent(id, true));
+        }
+        alignmentLines.value = tempAlignmentLines;
+        selectionBox.value.visible = tempSelectionBoxVisible;
+        selectionBoundingBox.value.visible = tempSelectionBoundingBoxVisible;
+      });
+  });
+};
 </script>
 
 <style scoped>
@@ -2715,5 +2913,67 @@ const checkVUploadComponents = () => {
 /* 确保所有可交互元素在点击时没有轮廓线 */
 :deep(*:focus) {
   outline: none !important;
+}
+
+/* 导出对话框样式 */
+:deep(.export-dialog) .el-message-box__content {
+  max-width: 320px;
+}
+:deep(.export-dialog) .el-message-box__header {
+  border-bottom: 1px solid #ebeef5;
+  padding-bottom: 15px;
+}
+:deep(.export-dialog) .el-message-box__title {
+  font-size: 18px;
+  font-weight: bold;
+}
+:deep(.export-dialog) select,
+:deep(.export-dialog) input {
+  transition: all 0.3s;
+}
+:deep(.export-dialog) select:focus,
+:deep(.export-dialog) input:focus {
+  border-color: #409eff;
+  outline: none;
+}
+
+/* 全屏加载指示器 */
+.export-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.export-loading .spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #409eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+.export-loading .text {
+  font-size: 16px;
+  color: #606266;
+  margin-top: 15px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
